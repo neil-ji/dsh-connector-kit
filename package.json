@@ -1,0 +1,16 @@
+{
+  "name": "dsh-github-connector",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "vitest": "^4.1.8"
+  },
+  "packageManager": "pnpm@10.0.0"
+}
