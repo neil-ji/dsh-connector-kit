@@ -13,13 +13,23 @@ import {
   Config, GITHUB_SETTINGS_NAMESPACE, toConfigView,
   type GithubConfig, type GithubConfigView,
 } from './config.ts'
-import { GithubError, fetchWhoami, githubRequest } from './github-rest.ts'
+import { GithubError, buildGithubQuery, decodeBase64Content, encodeGithubPath, fetchWhoami, githubRequest, githubRequestBuffer } from './github-rest.ts'
 import { gitHostFromApiBase, gitProxyArgs, gitProxyProbeCommand, parseRemoteOwnerRepo, shellQuote } from './git-utils.ts'
 import type {
+  CloneRequest, CloneResult, CommentIssueRequest, CreateIssueRequest, CreateReleaseRequest,
   CreatePullRequest, CreateRepoRequest, CreateRepoResult, CreateReviewRequest,
-  GetPullRequest, GithubPullComment, GithubPullFile, GithubPullRequest,
-  GithubProxyTestValue, GithubRepo, GithubUser, GithubWhoamiValue, ListPullsRequest,
+  DownloadArtifactRequest, DownloadArtifactResult, EditRepoRequest, GetContentRequest,
+  GetPullRequest, GetWorkflowRunRequest, GithubArtifact, GithubBranch, GithubBranchDetail,
+  GithubCommit, GithubCommitDetail, GithubContent, GithubFileWriteResult, GithubIssue,
+  GithubIssueComment, GithubJob, GithubPagesBuild, GithubPagesStatus, GithubPullComment,
+  GithubPullFile, GithubPullRequest, GithubProxyTestValue, GithubReadme, GithubRelease, GithubRepo,
+  GithubRepoDetail, GithubSecretName, GithubTag, GithubTreeEntry, GithubUser,
+  GithubWhoamiValue, GithubWorkflow, GithubWorkflowRun, ListIssuesRequest, ListPullsRequest,
+  ListRunArtifactsRequest, ListWorkflowRunsRequest, WriteFileRequest, WorkflowDispatchRequest,
 } from './types.ts'
+import { writeFile as fsWriteFile } from 'node:fs/promises'
+import path from 'node:path'
+
 
 /**
  * Inline git credential helper. Git executes the body after the exclamation
@@ -334,6 +344,540 @@ export class GitHubService extends TypertRemoteService {
       throw new Error(`github_pull failed: ${run.stderr.text || run.stdout.text}`)
     }
     return { pulled: true }
+  }
+
+
+  // ── business: Pages ────────────────────────────────────────────────────────
+
+  /** Read the Pages site configuration and the latest build status. */
+  async getPagesStatus(req: { owner: string; repo: string }): Promise<GithubPagesStatus> {
+    this.assertAllowed('allowPages')
+    return githubRequest<GithubPagesStatus>({
+      method: 'GET',
+      path: `/repos/${req.owner}/${req.repo}/pages`,
+      token: await this.token(),
+      apiBase: this.apiBase,
+    })
+  }
+
+  /** Request a new Pages build (e.g. after pushing fresh static content). */
+  async requestPagesBuild(req: { owner: string; repo: string }): Promise<GithubPagesBuild> {
+    this.assertAllowed('allowPages')
+    return githubRequest<GithubPagesBuild>({
+      method: 'POST',
+      path: `/repos/${req.owner}/${req.repo}/pages/builds`,
+      token: await this.token(),
+      apiBase: this.apiBase,
+    })
+  }
+
+  // ── business: Actions ───────────────────────────────────────────────────────
+
+  /**
+   * Dispatch a workflow_dispatch run. GitHub answers 204 No Content on
+   * success; the ref defaults to the repository default branch when omitted.
+   */
+  async dispatchWorkflow(req: WorkflowDispatchRequest): Promise<{ dispatched: true; workflowId: string; ref: string }> {
+    this.assertAllowed('allowActions')
+    const body: Record<string, unknown> = {}
+    if (req.ref !== undefined && req.ref !== '') body.ref = req.ref
+    if (req.inputs !== undefined && Object.keys(req.inputs).length > 0) body.inputs = req.inputs
+    await githubRequest<undefined>({
+      method: 'POST',
+      path: `/repos/${req.owner}/${req.repo}/actions/workflows/${req.workflowId}/dispatches`,
+      token: await this.token(),
+      apiBase: this.apiBase,
+      body,
+    })
+    return { dispatched: true, workflowId: req.workflowId, ref: req.ref ?? '(default branch)' }
+  }
+
+  /** List workflow runs, optionally filtered by workflow/branch/status. */
+  async listWorkflowRuns(req: ListWorkflowRunsRequest): Promise<GithubWorkflowRun[]> {
+    this.assertAllowed('allowActions')
+    const prefix = req.workflowId === undefined || req.workflowId === ''
+      ? '/actions/runs'
+      : `/actions/workflows/${req.workflowId}/runs`
+    const query = buildGithubQuery({
+      branch: req.branch,
+      status: req.status,
+      per_page: req.limit ?? 10,
+    })
+    const payload = await githubRequest<{ workflow_runs: GithubWorkflowRun[] }>({
+      method: 'GET',
+      path: `/repos/${req.owner}/${req.repo}${prefix}${query}`,
+      token: await this.token(),
+      apiBase: this.apiBase,
+    })
+    return payload.workflow_runs ?? []
+  }
+
+  /** Read one workflow run (status/conclusion/head commit). */
+  async getWorkflowRun(req: GetWorkflowRunRequest): Promise<GithubWorkflowRun> {
+    this.assertAllowed('allowActions')
+    return githubRequest<GithubWorkflowRun>({
+      method: 'GET',
+      path: `/repos/${req.owner}/${req.repo}/actions/runs/${req.runId}`,
+      token: await this.token(),
+      apiBase: this.apiBase,
+    })
+  }
+
+  /** List artifacts produced by a workflow run. */
+  async listRunArtifacts(req: ListRunArtifactsRequest): Promise<GithubArtifact[]> {
+    this.assertAllowed('allowActions')
+    const payload = await githubRequest<{ artifacts: GithubArtifact[] }>({
+      method: 'GET',
+      path: `/repos/${req.owner}/${req.repo}/actions/runs/${req.runId}/artifacts`,
+      token: await this.token(),
+      apiBase: this.apiBase,
+    })
+    return payload.artifacts ?? []
+  }
+
+  /**
+   * Download one artifact zip to disk. The artifact name is fetched first so
+   * the default file name is meaningful; dest is resolved against the host cwd.
+   */
+  async downloadArtifact(req: DownloadArtifactRequest): Promise<DownloadArtifactResult> {
+    this.assertAllowed('allowActions')
+    const meta = await githubRequest<{ id: number; name: string; size_in_bytes: number }>({
+      method: 'GET',
+      path: `/repos/${req.owner}/${req.repo}/actions/artifacts/${req.artifactId}`,
+      token: await this.token(),
+      apiBase: this.apiBase,
+    })
+    const buffer = await githubRequestBuffer({
+      method: 'GET',
+      path: `/repos/${req.owner}/${req.repo}/actions/artifacts/${req.artifactId}/zip`,
+      token: await this.token(),
+      apiBase: this.apiBase,
+    })
+    const dest = req.dest === undefined || req.dest === ''
+      ? path.join(process.cwd(), meta.name + '.zip')
+      : path.resolve(process.cwd(), req.dest)
+    await fsWriteFile(dest, Buffer.from(buffer))
+    return { artifactId: meta.id, name: meta.name, sizeBytes: meta.size_in_bytes, savedTo: dest }
+  }
+
+
+  // ── business: identity & repo reads ─────────────────────────────────────────
+
+  /** Authenticated /user identity for the agent (scopes of classic PATs). */
+  async getIdentity(): Promise<GithubUser> {
+    this.assertAllowed('allowPull')
+    return this.whoami()
+  }
+
+  /** Full repository metadata (GET /repos/{owner}/{repo}). */
+  async getRepo(req: { owner: string; repo: string }): Promise<GithubRepoDetail> {
+    this.assertAllowed('allowPull')
+    return githubRequest<GithubRepoDetail>({
+      method: 'GET',
+      path: `/repos/${req.owner}/${req.repo}`,
+      token: await this.token(),
+      apiBase: this.apiBase,
+    })
+  }
+
+  /** Repositories the authenticated user can see, most recently updated first. */
+  async listUserRepos(req: { limit?: number }): Promise<GithubRepo[]> {
+    this.assertAllowed('allowPull')
+    const query = buildGithubQuery({ sort: 'updated', per_page: req.limit ?? 30 })
+    return githubRequest<GithubRepo[]>({
+      method: 'GET',
+      path: '/user/repos' + query,
+      token: await this.token(),
+      apiBase: this.apiBase,
+    })
+  }
+
+  /** Search public/accessible repositories by query. */
+  async searchRepos(req: { q: string; limit?: number }): Promise<GithubRepo[]> {
+    this.assertAllowed('allowPull')
+    const query = buildGithubQuery({ q: req.q, per_page: req.limit ?? 10 })
+    const payload = await githubRequest<{ total_count: number; items: GithubRepo[] }>({
+      method: 'GET',
+      path: '/search/repositories' + query,
+      token: await this.token(),
+      apiBase: this.apiBase,
+    })
+    return payload.items ?? []
+  }
+
+  // ── business: content ───────────────────────────────────────────────────────
+
+  /** Read a file (base64) or list a directory via the contents API. */
+  async getContent(req: GetContentRequest): Promise<GithubContent> {
+    this.assertAllowed('allowPull')
+    const pathPart = encodeGithubPath(req.path)
+    const query = buildGithubQuery({ ref: req.ref })
+    return githubRequest<GithubContent>({
+      method: 'GET',
+      path: `/repos/${req.owner}/${req.repo}/contents/${pathPart}${query}`,
+      token: await this.token(),
+      apiBase: this.apiBase,
+    })
+  }
+
+  /** Recursive git tree of a ref (whole repo structure). */
+  async getTree(req: { owner: string; repo: string; ref?: string }): Promise<GithubTreeEntry[]> {
+    this.assertAllowed('allowPull')
+    const ref = req.ref === undefined || req.ref === '' ? 'HEAD' : req.ref
+    const payload = await githubRequest<{ tree: GithubTreeEntry[]; truncated: boolean }>({
+      method: 'GET',
+      path: `/repos/${req.owner}/${req.repo}/git/trees/${encodeURIComponent(ref)}?recursive=1`,
+      token: await this.token(),
+      apiBase: this.apiBase,
+    })
+    return payload.tree ?? []
+  }
+
+  /** Readme of the repository (decoded). */
+  async getReadme(req: { owner: string; repo: string; dir?: string; ref?: string }): Promise<GithubReadme> {
+    this.assertAllowed('allowPull')
+    const dirPart = req.dir === undefined || req.dir === '' ? '' : '/' + encodeGithubPath(req.dir)
+    const query = buildGithubQuery({ ref: req.ref })
+    return githubRequest<GithubReadme>({
+      method: 'GET',
+      path: `/repos/${req.owner}/${req.repo}/readme${dirPart}${query}`,
+      token: await this.token(),
+      apiBase: this.apiBase,
+    })
+  }
+
+  /** Recent commits, optionally filtered by path or branch. */
+  async listCommits(req: { owner: string; repo: string; path?: string; sha?: string; limit?: number }): Promise<GithubCommit[]> {
+    this.assertAllowed('allowPull')
+    const query = buildGithubQuery({ path: req.path, sha: req.sha, per_page: req.limit ?? 10 })
+    const payload = await githubRequest<Array<{
+      sha: string
+      commit: { message: string; author: { name: string | null; date: string | null } }
+      author: { login: string } | null
+      html_url: string
+    }>>({
+      method: 'GET',
+      path: `/repos/${req.owner}/${req.repo}/commits${query}`,
+      token: await this.token(),
+      apiBase: this.apiBase,
+    })
+    return payload.map(entry => ({
+      sha: entry.sha,
+      message: entry.commit.message.split('\n')[0],
+      author_name: entry.commit.author.name,
+      author_login: entry.author?.login ?? null,
+      author_date: entry.commit.author.date,
+      html_url: entry.html_url,
+    }))
+  }
+
+  /** One commit with its changed files and patches. */
+  async getCommit(req: { owner: string; repo: string; sha: string }): Promise<GithubCommitDetail> {
+    this.assertAllowed('allowPull')
+    const payload = await githubRequest<{
+      sha: string
+      commit: { message: string; author: { name: string | null; date: string | null } }
+      html_url: string
+      files?: Array<{ filename: string; status: string; additions: number; deletions: number; changes: number; patch?: string }>
+    }>({
+      method: 'GET',
+      path: `/repos/${req.owner}/${req.repo}/commits/${req.sha}`,
+      token: await this.token(),
+      apiBase: this.apiBase,
+    })
+    return {
+      sha: payload.sha,
+      message: payload.commit.message.split('\n')[0],
+      author_name: payload.commit.author.name,
+      author_date: payload.commit.author.date,
+      html_url: payload.html_url,
+      files: (payload.files ?? []).map(file => ({
+        filename: file.filename, status: file.status, additions: file.additions,
+        deletions: file.deletions, changes: file.changes,
+        ...(file.patch === undefined ? {} : { patch: file.patch }),
+      })),
+    }
+  }
+
+  /** List branches. */
+  async listBranches(req: { owner: string; repo: string; limit?: number }): Promise<GithubBranch[]> {
+    this.assertAllowed('allowPull')
+    const query = buildGithubQuery({ per_page: req.limit ?? 30 })
+    const payload = await githubRequest<Array<{ name: string; protected: boolean; commit: { sha: string } }>>({
+      method: 'GET',
+      path: `/repos/${req.owner}/${req.repo}/branches${query}`,
+      token: await this.token(),
+      apiBase: this.apiBase,
+    })
+    return payload.map(branch => ({ name: branch.name, protected: branch.protected, commit_sha: branch.commit.sha }))
+  }
+
+  /** One branch with protection settings. */
+  async getBranch(req: { owner: string; repo: string; branch: string }): Promise<GithubBranchDetail> {
+    this.assertAllowed('allowPull')
+    const payload = await githubRequest<{
+      name: string
+      protected: boolean
+      commit: { sha: string }
+      protection?: {
+        enabled?: boolean
+        required_status_checks?: { contexts: string[] } | null
+        required_pull_request_reviews?: { required_approving_review_count: number } | null
+      }
+    }>({
+      method: 'GET',
+      path: `/repos/${req.owner}/${req.repo}/branches/${encodeURIComponent(req.branch)}`,
+      token: await this.token(),
+      apiBase: this.apiBase,
+    })
+    return {
+      name: payload.name,
+      protected: payload.protected,
+      commit_sha: payload.commit.sha,
+      protection_enabled: payload.protection?.enabled ?? payload.protected,
+      required_status_checks: payload.protection?.required_status_checks?.contexts ?? [],
+      required_reviews: payload.protection?.required_pull_request_reviews?.required_approving_review_count ?? null,
+    }
+  }
+
+  /** List tags. */
+  async listTags(req: { owner: string; repo: string; limit?: number }): Promise<GithubTag[]> {
+    this.assertAllowed('allowPull')
+    const query = buildGithubQuery({ per_page: req.limit ?? 30 })
+    const payload = await githubRequest<Array<{ name: string; commit: { sha: string }; zipball_url: string; tarball_url: string }>>({
+      method: 'GET',
+      path: `/repos/${req.owner}/${req.repo}/tags${query}`,
+      token: await this.token(),
+      apiBase: this.apiBase,
+    })
+    return payload.map(tag => ({
+      name: tag.name, commit_sha: tag.commit.sha, zipball_url: tag.zipball_url, tarball_url: tag.tarball_url,
+    }))
+  }
+
+  // ── business: repo safe writes ──────────────────────────────────────────────
+
+  /** Edit safe repository metadata (description/homepage/topics/features; never visibility). */
+  async editRepo(req: EditRepoRequest): Promise<GithubRepo> {
+    this.assertAllowed('allowCreateRepo')
+    const body: Record<string, unknown> = {}
+    if (req.description !== undefined) body.description = req.description
+    if (req.homepage !== undefined) body.homepage = req.homepage
+    if (req.topics !== undefined) body.topics = req.topics
+    if (req.has_issues !== undefined) body.has_issues = req.has_issues
+    if (req.has_wiki !== undefined) body.has_wiki = req.has_wiki
+    if (req.has_projects !== undefined) body.has_projects = req.has_projects
+    return githubRequest<GithubRepo>({
+      method: 'PATCH',
+      path: `/repos/${req.owner}/${req.repo}`,
+      token: await this.token(),
+      apiBase: this.apiBase,
+      body,
+    })
+  }
+
+  /** Fork a repository into the authenticated user's account. */
+  async forkRepo(req: { owner: string; repo: string }): Promise<GithubRepo> {
+    this.assertAllowed('allowCreateRepo')
+    return githubRequest<GithubRepo>({
+      method: 'POST',
+      path: `/repos/${req.owner}/${req.repo}/forks`,
+      token: await this.token(),
+      apiBase: this.apiBase,
+    })
+  }
+
+  /** Create or update a single file via the contents API (creates a commit). */
+  async writeFile(req: WriteFileRequest): Promise<GithubFileWriteResult> {
+    this.assertAllowed('allowPush')
+    const body: Record<string, unknown> = {
+      message: req.message,
+      content: Buffer.from(req.content, 'utf8').toString('base64'),
+    }
+    if (req.sha !== undefined && req.sha !== '') body.sha = req.sha
+    if (req.branch !== undefined && req.branch !== '') body.branch = req.branch
+    const payload = await githubRequest<{ commit: { sha: string; message: string; html_url: string }; content: { path: string } }>({
+      method: 'PUT',
+      path: `/repos/${req.owner}/${req.repo}/contents/${encodeGithubPath(req.path)}`,
+      token: await this.token(),
+      apiBase: this.apiBase,
+      body,
+    })
+    return {
+      commitSha: payload.commit.sha,
+      commitMessage: payload.commit.message,
+      commitUrl: payload.commit.html_url,
+      path: payload.content.path,
+    }
+  }
+
+  // ── business: issues ────────────────────────────────────────────────────────
+
+  /** Project one REST issue payload into the wire-safe shape. */
+  private projectIssue(issue: {
+    number: number; title: string; state: string; html_url: string
+    user: { login: string } | null; labels: Array<{ name: string }>; body: string | null
+    created_at: string; updated_at: string
+  }): GithubIssue {
+    return {
+      number: issue.number, title: issue.title, state: issue.state, html_url: issue.html_url,
+      user_login: issue.user?.login ?? null, labels: issue.labels.map(label => label.name),
+      body: issue.body, created_at: issue.created_at, updated_at: issue.updated_at,
+    }
+  }
+
+  /** List issues (note: pull requests also appear; GitHub treats PRs as issues). */
+  async listIssues(req: ListIssuesRequest): Promise<GithubIssue[]> {
+    this.assertAllowed('allowIssues')
+    const query = buildGithubQuery({
+      state: req.state, labels: req.labels, assignee: req.assignee, creator: req.creator,
+      sort: req.sort, per_page: req.limit ?? 30,
+    })
+    const payload = await githubRequest<Array<Parameters<GitHubService['projectIssue']>[0]>>({
+      method: 'GET',
+      path: `/repos/${req.owner}/${req.repo}/issues${query}`,
+      token: await this.token(),
+      apiBase: this.apiBase,
+    })
+    return payload.map(issue => this.projectIssue(issue))
+  }
+
+  /** Read one issue. */
+  async getIssue(req: { owner: string; repo: string; number: number }): Promise<GithubIssue> {
+    this.assertAllowed('allowIssues')
+    const issue = await githubRequest<Parameters<GitHubService['projectIssue']>[0]>({
+      method: 'GET',
+      path: `/repos/${req.owner}/${req.repo}/issues/${req.number}`,
+      token: await this.token(),
+      apiBase: this.apiBase,
+    })
+    return this.projectIssue(issue)
+  }
+
+  /** Create an issue. */
+  async createIssue(req: CreateIssueRequest): Promise<GithubIssue> {
+    this.assertAllowed('allowIssues')
+    const body: Record<string, unknown> = { title: req.title }
+    if (req.body !== undefined) body.body = req.body
+    if (req.labels !== undefined && req.labels.length > 0) body.labels = req.labels
+    if (req.assignees !== undefined && req.assignees.length > 0) body.assignees = req.assignees
+    const issue = await githubRequest<Parameters<GitHubService['projectIssue']>[0]>({
+      method: 'POST',
+      path: `/repos/${req.owner}/${req.repo}/issues`,
+      token: await this.token(),
+      apiBase: this.apiBase,
+      body,
+    })
+    return this.projectIssue(issue)
+  }
+
+  /** Comment on an issue or a pull request (PRs are issues on GitHub). */
+  async commentOnIssue(req: CommentIssueRequest): Promise<GithubIssueComment> {
+    this.assertAllowed('allowIssues')
+    const comment = await githubRequest<{ id: number; body: string; user: { login: string } | null; created_at: string; html_url: string }>({
+      method: 'POST',
+      path: `/repos/${req.owner}/${req.repo}/issues/${req.number}/comments`,
+      token: await this.token(),
+      apiBase: this.apiBase,
+      body: { body: req.body },
+    })
+    return {
+      id: comment.id, body: comment.body, user_login: comment.user?.login ?? null,
+      created_at: comment.created_at, html_url: comment.html_url,
+    }
+  }
+
+  // ── business: releases ──────────────────────────────────────────────────────
+
+  /** List releases. */
+  async listReleases(req: { owner: string; repo: string; limit?: number }): Promise<GithubRelease[]> {
+    this.assertAllowed('allowRelease')
+    const query = buildGithubQuery({ per_page: req.limit ?? 30 })
+    return githubRequest<GithubRelease[]>({
+      method: 'GET',
+      path: `/repos/${req.owner}/${req.repo}/releases${query}`,
+      token: await this.token(),
+      apiBase: this.apiBase,
+    })
+  }
+
+  /** Create a release (draft supported; the tag is created when missing). */
+  async createRelease(req: CreateReleaseRequest): Promise<GithubRelease> {
+    this.assertAllowed('allowRelease')
+    const body: Record<string, unknown> = { tag_name: req.tag_name }
+    if (req.target_commitish !== undefined && req.target_commitish !== '') body.target_commitish = req.target_commitish
+    if (req.name !== undefined) body.name = req.name
+    if (req.body !== undefined) body.body = req.body
+    if (req.draft !== undefined) body.draft = req.draft
+    if (req.prerelease !== undefined) body.prerelease = req.prerelease
+    return githubRequest<GithubRelease>({
+      method: 'POST',
+      path: `/repos/${req.owner}/${req.repo}/releases`,
+      token: await this.token(),
+      apiBase: this.apiBase,
+      body,
+    })
+  }
+
+  // ── business: actions extended ──────────────────────────────────────────────
+
+  /** List workflows of a repository (ids for github_workflow_dispatch). */
+  async listWorkflows(req: { owner: string; repo: string }): Promise<GithubWorkflow[]> {
+    this.assertAllowed('allowActions')
+    const payload = await githubRequest<{ total_count: number; workflows: GithubWorkflow[] }>({
+      method: 'GET',
+      path: `/repos/${req.owner}/${req.repo}/actions/workflows`,
+      token: await this.token(),
+      apiBase: this.apiBase,
+    })
+    return payload.workflows ?? []
+  }
+
+  /** Jobs (with steps) of one workflow run — failure diagnosis. */
+  async listWorkflowJobs(req: { owner: string; repo: string; runId: number }): Promise<GithubJob[]> {
+    this.assertAllowed('allowActions')
+    const payload = await githubRequest<{ total_count: number; jobs: GithubJob[] }>({
+      method: 'GET',
+      path: `/repos/${req.owner}/${req.repo}/actions/runs/${req.runId}/jobs`,
+      token: await this.token(),
+      apiBase: this.apiBase,
+    })
+    return payload.jobs ?? []
+  }
+
+  /** List Actions secret NAMES (values are never exposed by GitHub or here). */
+  async listSecrets(req: { owner: string; repo: string }): Promise<GithubSecretName[]> {
+    this.assertAllowed('allowActions')
+    const payload = await githubRequest<{ total_count: number; secrets: GithubSecretName[] }>({
+      method: 'GET',
+      path: `/repos/${req.owner}/${req.repo}/actions/secrets`,
+      token: await this.token(),
+      apiBase: this.apiBase,
+    })
+    return payload.secrets ?? []
+  }
+
+  // ── business: clone ─────────────────────────────────────────────────────────
+
+  /** Clone a repository into a directory (token via env + inline credential helper). */
+  async clone(req: CloneRequest): Promise<CloneResult> {
+    this.assertAllowed('allowPull')
+    const token = await this.token()
+    const shell = this.ctx.shell as ShellExecutor
+    const url = this.remoteUrl(req.owner, req.repo)
+    const dir = req.dir === undefined || req.dir === '' ? req.repo : req.dir
+    const branchArgs = req.branch === undefined || req.branch === '' ? '' : ' --branch ' + shellQuote(req.branch)
+    const sandboxPolicy = req.session === undefined ? undefined : this.sessionShellPolicy(req.session)
+    const run = await shell.run(shell.resolve({
+      command: `git ${gitProxyArgs(this.config.gitProxy)}-c credential.helper='${CREDENTIAL_HELPER}' clone${branchArgs} ${shellQuote(url)} ${shellQuote(dir)}`,
+      workdir: process.cwd(),
+      env: { GITHUB_TOKEN: token },
+      ...(sandboxPolicy === undefined ? {} : { sandboxPolicy }),
+    }))
+    if (run.exitCode !== 0) {
+      throw new Error('github_clone failed: ' + (run.stderr.text || run.stdout.text))
+    }
+    return { cloned: true, dir, branch: req.branch ?? 'default' }
   }
 
   // ── Typert Remote methods (Web UI) ────────────────────────────────────────

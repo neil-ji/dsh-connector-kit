@@ -25,6 +25,10 @@ export interface GithubConfigView {
   allowPull: boolean
   allowPullRequest: boolean
   allowReview: boolean
+  allowPages: boolean
+  allowActions: boolean
+  allowIssues: boolean
+  allowRelease: boolean
 }
 
 /** Wire value of the github/proxy.test health probe. */
@@ -55,6 +59,10 @@ export const configViewSchema = z.object({
   allowPull: z.boolean(),
   allowPullRequest: z.boolean(),
   allowReview: z.boolean(),
+  allowPages: z.boolean(),
+  allowActions: z.boolean(),
+  allowIssues: z.boolean(),
+  allowRelease: z.boolean(),
 })
 
 export const proxyTestRequestSchema = z.object({

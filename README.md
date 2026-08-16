@@ -66,7 +66,18 @@ pnpm typecheck
 ### 已实现
 
 - host 面 `ctx.github`（GitHubService extends TypertRemoteService）：REST + git（push/pull）。
-- 8 个 Agent 工具：`github_repo_create` / `github_push`（origin 推断）/ `github_pull` / `github_pr` / `github_pr_list` / `github_pr_get` / `github_review` / `github_review_list`。
+- 40 个 Agent 工具，覆盖：
+  - 仓库/身份：`github_whoami` / `github_repo_get` / `github_user_repos` / `github_search_repos` / `github_repo_create` / `github_repo_edit` / `github_fork`
+  - git：`github_clone` / `github_pull` / `github_push`（origin 推断，永不 force）
+  - 内容：`github_content`（文件/目录）/ `github_repo_tree` / `github_readme` / `github_file_write`（API 单文件提交）
+  - 提交/分支/tag：`github_commits` / `github_commit_get` / `github_branches` / `github_branch_get` / `github_tags`
+  - PR/审查：`github_pr` / `github_pr_list` / `github_pr_get` / `github_review` / `github_review_list`
+  - Issue：`github_issue_create` / `github_issues` / `github_issue_get` / `github_issue_comment`（PR 也适用）
+  - Release：`github_releases` / `github_release_create`（支持 draft）
+  - Pages：`github_pages_status` / `github_pages_build`
+  - Actions：`github_workflows` / `github_workflow_dispatch` / `github_workflow_runs` / `github_workflow_run` / `github_workflow_jobs` / `github_workflow_artifacts` / `github_artifact_download` / `github_secrets`（仅名称，不含值）
+- 权限闸门：`allowCreateRepo` / `allowPush` / `allowPull` / `allowPullRequest` / `allowReview` / `allowPages` / `allowActions` / `allowIssues` / `allowRelease`（Web 设置页可关）。推送 `.github/workflows` 文件需要 token 含 `workflow` scope（fine-grained PAT 需 Workflows 写入），设置页有提示。
+- 刻意不提供：删除仓库/分支、force push、visibility 变更、webhook/secret 写入等任何危险操作。
 - Web 设置页：token 写入/移除、连接测试、权限开关、git 身份、默认可见性。
 - 单测：`git-utils`、`github-rest`（mock fetch + token 不回显）。
 
@@ -75,5 +86,5 @@ pnpm typecheck
 - 在装有 `@deepseek-ai/*` 依赖的环境跑 `pnpm install && pnpm test && pnpm build`。
 - 联调 Typert Remote（host `ctx.typert.register` 与 client `$mount` 的 endpoint/wire 一致性）。
 - Web e2e（Playwright）。
-- 可选：`github_pull` clone 到目录、`github_review` 行级 inline comments、OAuth device flow / GHES SSO。
+- 可选：`github_review` 行级 inline comments、Actions secrets 管理、OAuth device flow / GHES SSO、OIDC 云部署凭证。
 

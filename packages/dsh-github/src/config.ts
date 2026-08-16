@@ -32,6 +32,10 @@ export interface GithubConfig {
   allowPull?: boolean
   allowPullRequest?: boolean
   allowReview?: boolean
+  allowPages?: boolean
+  allowActions?: boolean
+  allowIssues?: boolean
+  allowRelease?: boolean
 }
 
 /** Schemastery schema; defaults are the deployment-safe values. */
@@ -47,6 +51,10 @@ export const Config: Schema<GithubConfig> = Schema.object({
   allowPull: Schema.boolean().default(true),
   allowPullRequest: Schema.boolean().default(true),
   allowReview: Schema.boolean().default(true),
+  allowPages: Schema.boolean().default(true),
+  allowActions: Schema.boolean().default(true),
+  allowIssues: Schema.boolean().default(true),
+  allowRelease: Schema.boolean().default(true),
 })
 
 export type { GithubConfigView } from 'dsh-github-wire'
@@ -64,5 +72,9 @@ export function toConfigView(config: GithubConfig): GithubConfigView {
     allowPull: config.allowPull ?? true,
     allowPullRequest: config.allowPullRequest ?? true,
     allowReview: config.allowReview ?? true,
+    allowPages: config.allowPages ?? true,
+    allowActions: config.allowActions ?? true,
+    allowIssues: config.allowIssues ?? true,
+    allowRelease: config.allowRelease ?? true,
   }
 }

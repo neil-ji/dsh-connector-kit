@@ -13,8 +13,16 @@ export { Config, GITHUB_SETTINGS_NAMESPACE, type GithubConfig, type GithubConfig
 export { GitHubService } from './github-service.ts'
 export { GithubError } from './github-rest.ts'
 export type {
+  CloneRequest, CloneResult, CommentIssueRequest, CreateIssueRequest, CreateReleaseRequest,
   CreatePullRequest, CreateRepoRequest, CreateRepoResult, CreateReviewRequest,
-  GithubPullRequest, GithubRepo, GithubUser, GithubWhoamiValue,
+  DownloadArtifactRequest, DownloadArtifactResult, EditRepoRequest, GetContentRequest,
+  GetWorkflowRunRequest, GithubArtifact, GithubBranch, GithubBranchDetail, GithubCommit,
+  GithubCommitDetail, GithubContent, GithubFileWriteResult, GithubIssue, GithubIssueComment,
+  GithubJob, GithubPagesBuild, GithubPagesStatus, GithubPullRequest, GithubReadme,
+  GithubRelease, GithubRepo, GithubRepoDetail, GithubSecretName, GithubTag,
+  GithubTreeEntry, GithubUser, GithubWhoamiValue, GithubWorkflow, GithubWorkflowRun,
+  ListIssuesRequest, ListRunArtifactsRequest, ListWorkflowRunsRequest,
+  WriteFileRequest, WorkflowDispatchRequest,
 } from './types.ts'
 
 export const name = 'dsh-github'

@@ -175,6 +175,11 @@ function Loaded({ injected }: { injected: GithubSectionInjected }): ReactNode {
             <PermissionRow label={t('allowPull')} checked={config.allowPull} onChange={(v) => { setConfigDraft({ ...config, allowPull: v }) }} />
             <PermissionRow label={t('allowPullRequest')} checked={config.allowPullRequest} onChange={(v) => { setConfigDraft({ ...config, allowPullRequest: v }) }} />
             <PermissionRow label={t('allowReview')} checked={config.allowReview} onChange={(v) => { setConfigDraft({ ...config, allowReview: v }) }} />
+            <PermissionRow label={t('allowPages')} checked={config.allowPages} onChange={(v) => { setConfigDraft({ ...config, allowPages: v }) }} />
+            <PermissionRow label={t('allowActions')} checked={config.allowActions} onChange={(v) => { setConfigDraft({ ...config, allowActions: v }) }} />
+            <PermissionRow label={t('allowIssues')} checked={config.allowIssues} onChange={(v) => { setConfigDraft({ ...config, allowIssues: v }) }} />
+            <PermissionRow label={t('allowRelease')} checked={config.allowRelease} onChange={(v) => { setConfigDraft({ ...config, allowRelease: v }) }} />
+            <div className={styles.muted}>{t('workflowScopeNote')}</div>
             <div className={styles.muted}>{t('forcePush')} — {t('notAvailable')}</div>
             <div className={styles.muted}>{t('deleteOperations')} — {t('notAvailable')}</div>
 
