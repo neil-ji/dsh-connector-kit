@@ -82,6 +82,14 @@ git push origin vX.Y.Z   # 触发 .github/workflows/release.yml
 
 **站点结构**（`site/`）：`landing/index.html` 为功能落地页（部署在站点根 `/`），`docs/index.html` 为官方文档（`/docs/`），两页互相导航；版本号占位符 `__DSH_VERSION__` 在构建时替换为 tag 版本。
 
+**Trusted publisher 批量配置（npm ≥ 11.10）**：新增 npm 包或重配信任关系时，无需逐包去 npmjs 网页点选，一条命令搞定（需 npm 登录态 + 2FA OTP；先 `--dry-run` 验证）：
+
+```sh
+npm trust github dsh-github-connector-wire --file release.yml --repository neil-ji/dsh-github-connector --allow-publish -y
+npm trust github dsh-github-connector-ui    --file release.yml --repository neil-ji/dsh-github-connector --allow-publish -y
+npm trust github dsh-github-connector       --file release.yml --repository neil-ji/dsh-github-connector --allow-publish -y
+```
+
 ## 当前状态 / 路线图
 
 ### 已实现
