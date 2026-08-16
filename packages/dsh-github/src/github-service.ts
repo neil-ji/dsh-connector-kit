@@ -282,9 +282,13 @@ export class GitHubService extends TypertRemoteService {
    * or when the sandbox-policy service is absent.
    */
   private sessionShellPolicy(session: unknown): SessionShellPolicy | undefined {
-    const policy = (this.ctx as unknown as {
-      sandboxPolicy?: { resolve(opts: { session: unknown }): unknown },
-    }).sandboxPolicy
+    // ctx.get() (not direct property access) — the DSH host enforces Cordis's
+    // inject list on this context, and 'sandboxPolicy' is not injected here;
+    // get() returns undefined instead of throwing 'cannot get property ...'.
+    // Same pattern as the built-in bash tool.
+    const policy = this.ctx.get('sandboxPolicy') as
+      | { resolve(opts: { session: unknown }): unknown }
+      | undefined
     return policy?.resolve({ session }) as SessionShellPolicy | undefined
   }
 
