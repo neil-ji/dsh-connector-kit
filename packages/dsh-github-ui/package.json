@@ -76,5 +76,9 @@
     "typescript": "^5.6.0",
     "zod": "^4.0.0"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/neil-ji/dsh-github-connector.git"
+  }
 }

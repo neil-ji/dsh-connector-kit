@@ -12,7 +12,11 @@
     },
     "./package.json": "./package.json"
   },
-  "files": ["lib/index.js", "lib/types/**/*.js", "lib/types/**/*.d.ts"],
+  "files": [
+    "lib/index.js",
+    "lib/types/**/*.js",
+    "lib/types/**/*.d.ts"
+  ],
   "publishConfig": {
     "access": "public"
   },
@@ -32,5 +36,9 @@
     "typescript": "^5.6.0",
     "zod": "^4.0.0"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/neil-ji/dsh-github-connector.git"
+  }
 }
