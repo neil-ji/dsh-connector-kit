@@ -8,7 +8,7 @@ import type { ReactNode } from 'react'
 import { Button, Input, Pill, StateDot } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { SnapshotSelectorHook } from '@deepseek-ai/dsh-client-web-react'
 import type { GithubSettingsState, GithubSettingsStore } from './store.ts'
-import type { GithubConfigView } from 'dsh-github-wire'
+import type { GithubConfigView, GithubProxyTestValue } from 'dsh-github-wire'
 import type { GithubKey } from './locales.ts'
 import styles from './GithubSection.module.css'
 
@@ -60,6 +60,7 @@ function Loaded({ injected }: { injected: GithubSectionInjected }): ReactNode {
   const [notice, setNotice] = useState<string | undefined>(undefined)
   const [testError, setTestError] = useState<string | undefined>(undefined)
   const [configDraft, setConfigDraft] = useState<GithubConfigView | undefined>(undefined)
+  const [proxyTest, setProxyTest] = useState<GithubProxyTestValue | undefined>(undefined)
 
   if (state.status === 'idle') void controller.load()
   const config = configDraft ?? state.config
@@ -195,6 +196,40 @@ function Loaded({ injected }: { injected: GithubSectionInjected }): ReactNode {
                 <option value="private">{t('private')}</option>
                 <option value="public">{t('public')}</option>
               </select>
+            </div>
+            <div className={styles.field}>
+              <span className={styles.fieldLabel}>{t('gitProxy')}</span>
+              <div className={styles.row}>
+                <Input
+                  placeholder={t('gitProxyPlaceholder')}
+                  value={config.gitProxy}
+                  onChange={(event) => { setConfigDraft({ ...config, gitProxy: (event.currentTarget as HTMLInputElement).value }) }}
+                  className={styles.grow}
+                />
+                <Button
+                  variant="outline"
+                  disabled={busy || config.gitProxy === ''}
+                  onClick={() => {
+                    void (async () => {
+                      setBusy(true)
+                      const result = await controller.testProxy(config.gitProxy)
+                      setBusy(false)
+                      setProxyTest(result)
+                    })()
+                  }}
+                >
+                  {busy ? t('proxyTesting') : t('testProxy')}
+                </Button>
+              </div>
+              {proxyTest !== undefined
+                ? (
+                  <p className={proxyTest.ok ? styles.notice : styles.error} role="status">
+                    {proxyTest.ok
+                      ? t('proxyOk') + ' · ' + t('proxyTarget') + ' ' + proxyTest.host + ' · ' + proxyTest.latencyMs + 'ms'
+                      : t('proxyFail') + ': ' + (proxyTest.error ?? '')}
+                  </p>
+                )
+                : null}
             </div>
 
             {configDirty

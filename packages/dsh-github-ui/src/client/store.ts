@@ -7,7 +7,7 @@ import { createSnapshotStore } from '@deepseek-ai/dsh-client-runtime/client'
 import type { SnapshotStore } from '@deepseek-ai/dsh-client-runtime/client'
 import type { CredentialView, IApiClient } from '@deepseek-ai/dsh-api-remotes/client'
 import type { TypertRemoteNamespaceMap } from '@deepseek-ai/dsh-typert-protocol'
-import type { GithubConfigView, GithubWhoamiValue } from 'dsh-github-wire'
+import type { GithubConfigView, GithubProxyTestValue, GithubWhoamiValue } from 'dsh-github-wire'
 
 /** The mounted github Remote namespace (created by ctx.remote.$mount). */
 type GithubNamespace = TypertRemoteNamespaceMap['github']
@@ -111,6 +111,20 @@ export class GithubSettingsStore {
       return undefined
     } catch (error) {
       return messageOf(error)
+    }
+  }
+
+  /**
+   * Probe the git proxy (draft wins over the saved value) through the
+   * github/proxy.test Remote method. Always resolves to a value.
+   */
+  async testProxy(draft?: string): Promise<GithubProxyTestValue> {
+    try {
+      const result = await this.github['proxy.test'](draft === undefined ? {} : { proxy: draft })
+      if (!result.ok) return { ok: false, latencyMs: 0, host: 'github.com', error: result.error.message }
+      return result.value
+    } catch (error) {
+      return { ok: false, latencyMs: 0, host: 'github.com', error: messageOf(error) }
     }
   }
 

@@ -14,11 +14,11 @@ import {
   type GithubConfig, type GithubConfigView,
 } from './config.ts'
 import { GithubError, fetchWhoami, githubRequest } from './github-rest.ts'
-import { gitHostFromApiBase, parseRemoteOwnerRepo, shellQuote } from './git-utils.ts'
+import { gitHostFromApiBase, gitProxyArgs, gitProxyProbeCommand, parseRemoteOwnerRepo, shellQuote } from './git-utils.ts'
 import type {
   CreatePullRequest, CreateRepoRequest, CreateRepoResult, CreateReviewRequest,
   GetPullRequest, GithubPullComment, GithubPullFile, GithubPullRequest,
-  GithubRepo, GithubUser, GithubWhoamiValue, ListPullsRequest,
+  GithubProxyTestValue, GithubRepo, GithubUser, GithubWhoamiValue, ListPullsRequest,
 } from './types.ts'
 
 /**
@@ -48,6 +48,10 @@ function assertServiceableGithubConfig(config: GithubConfig): void {
   const apiBase = config.apiBase ?? 'https://api.github.com'
   if (!/^https:\/\//.test(apiBase)) {
     throw new Error(`github: apiBase must be an https URL, got ${JSON.stringify(apiBase)}`)
+  }
+  const proxy = config.gitProxy
+  if (proxy !== undefined && proxy !== '' && !/^(https?|socks[45]h?):\/\//i.test(proxy)) {
+    throw new Error(`github: gitProxy must be an http(s)/socks proxy URL, got ${JSON.stringify(proxy)}`)
   }
 }
 
@@ -242,8 +246,8 @@ export class GitHubService extends TypertRemoteService {
     const steps = [
       req.add === false ? undefined : 'git add -A',
       `git ${this.commitIdentityArgs()}commit -m ${shellQuote(req.message)}`,
-      `git remote set-url origin '${url}'`,
-      `git -c credential.helper='${CREDENTIAL_HELPER}' push -u origin ${req.branch}`,
+      `git ${gitProxyArgs(this.config.gitProxy)}remote set-url origin ${shellQuote(url)}`,
+      `git ${gitProxyArgs(this.config.gitProxy)}-c credential.helper='${CREDENTIAL_HELPER}' push -u origin ${req.branch}`,
     ].filter((s): s is string => s !== undefined)
     const sandboxPolicy = req.session === undefined ? undefined : this.sessionShellPolicy(req.session)
     const run = await shell.run(shell.resolve({
@@ -321,7 +325,7 @@ export class GitHubService extends TypertRemoteService {
     const branch = req.branch === undefined ? '' : ` origin ${req.branch}`
     const sandboxPolicy = req.session === undefined ? undefined : this.sessionShellPolicy(req.session)
     const run = await shell.run(shell.resolve({
-      command: `git -c credential.helper='${CREDENTIAL_HELPER}' pull${branch}`,
+      command: `git ${gitProxyArgs(this.config.gitProxy)}-c credential.helper='${CREDENTIAL_HELPER}' pull${branch}`,
       workdir: req.cwd,
       env: { GITHUB_TOKEN: token },
       ...(sandboxPolicy === undefined ? {} : { sandboxPolicy }),
@@ -333,6 +337,36 @@ export class GitHubService extends TypertRemoteService {
   }
 
   // ── Typert Remote methods (Web UI) ────────────────────────────────────────
+
+  /**
+   * Proxy health probe: git ls-remote through the configured (or draft)
+   * proxy against a public repo. Validates both proxy connectivity and the
+   * exact HTTPS path git push would use. No auth and no file writes, so it
+   * also works under the deployment's default sandbox.
+   */
+  @Remote('proxy.test')
+  async proxyTestRemote(request: { proxy?: string }): Promise<GithubProxyTestValue> {
+    const proxy = request.proxy ?? this.config.gitProxy
+    if (proxy === undefined || proxy === '') {
+      return { ok: false, latencyMs: 0, host: 'github.com', error: 'github: no git proxy configured' }
+    }
+    if (!/^(https?|socks[45]h?):\/\//i.test(proxy)) {
+      return { ok: false, latencyMs: 0, host: 'github.com', error: `github: invalid proxy URL ${JSON.stringify(proxy)}` }
+    }
+    const shell = this.ctx.shell as ShellExecutor
+    const started = Date.now()
+    const run = await shell.run(shell.resolve({
+      command: gitProxyProbeCommand(proxy),
+      workdir: process.cwd(),
+      timeoutMs: 20000,
+    }))
+    const latencyMs = Date.now() - started
+    if (run.exitCode !== 0) {
+      const detail = (run.stderr.text || run.stdout.text || 'unknown error').trim().slice(0, 300)
+      return { ok: false, latencyMs, host: 'github.com', error: detail }
+    }
+    return { ok: true, latencyMs, host: 'github.com', error: null }
+  }
 
   /** Connection test; an optional draft token wins over the stored one. */
   @Remote('whoami')

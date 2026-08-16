@@ -52,6 +52,7 @@ pnpm typecheck
 
 - **token**：走 `ctx.credentials`（credential-ref `GITHUB_TOKEN`），值只存 `$DSH_HOME/.credentials.yaml`，Web 只写不回读。
 - **git 认证**：per-run env + 内联 credential helper（token 不进 argv / remote URL / `.git/config`）。
+- **网络代理**：`gitProxy`（如 `http://127.0.0.1:7897`，支持 http/https/socks）供 push/pull 走本地 VPN/Clash 代理；Web 设置页可配，留空直连（不覆盖用户全局 git 代理配置）。
 - **配置**：`ctx.settings.register('github', …)` 本地持久化；Web 读写走自定义 Typert Remote（绕开 apiproxy settings 白名单）。
 - **Typert 手写契约**：generator 未随 dsh 分发，因此 `dsh-github-wire` 手写 strict `InvocationDescriptor[]`；host 侧 `ctx.typert.register(GITHUB_HOST_CONTRIBUTION)`，client 侧 `ctx.remote.$mount(GITHUB_REMOTE_CONTRIBUTION)`，两端共享同一份 descriptor 不漂移。
 - **危险操作零入口**：删除仓库/分支不提供；push 无 `--force`。

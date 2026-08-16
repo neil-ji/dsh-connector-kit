@@ -23,6 +23,8 @@ export interface GithubConfig {
   gitName?: string
   /** git config user.email for authored commits. */
   gitEmail?: string
+  /** Optional proxy URL for git network operations (http/s or socks), e.g. http://127.0.0.1:7897. */
+  gitProxy?: string
   /** Default visibility for created repositories. */
   defaultVisibility?: 'private' | 'public'
   allowCreateRepo?: boolean
@@ -38,6 +40,7 @@ export const Config: Schema<GithubConfig> = Schema.object({
   apiBase: Schema.string().default('https://api.github.com'),
   gitName: Schema.string(),
   gitEmail: Schema.string(),
+  gitProxy: Schema.string(),
   defaultVisibility: Schema.union(['private', 'public']).default('private'),
   allowCreateRepo: Schema.boolean().default(true),
   allowPush: Schema.boolean().default(true),
@@ -54,6 +57,7 @@ export function toConfigView(config: GithubConfig): GithubConfigView {
     apiBase: config.apiBase ?? 'https://api.github.com',
     gitName: config.gitName ?? '',
     gitEmail: config.gitEmail ?? '',
+    gitProxy: config.gitProxy ?? '',
     defaultVisibility: config.defaultVisibility ?? 'private',
     allowCreateRepo: config.allowCreateRepo ?? true,
     allowPush: config.allowPush ?? true,

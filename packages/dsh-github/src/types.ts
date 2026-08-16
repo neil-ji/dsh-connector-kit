@@ -96,6 +96,14 @@ export interface GetPullRequest {
   number: number
 }
 
+/** Wire value returned by the github/proxy.test Remote method. */
+export interface GithubProxyTestValue {
+  ok: boolean
+  latencyMs: number
+  host: string
+  error: string | null
+}
+
 /** Wire value returned by the github/whoami Remote method. */
 export interface GithubWhoamiValue {
   login: string

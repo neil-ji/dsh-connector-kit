@@ -18,12 +18,21 @@ export interface GithubConfigView {
   apiBase: string
   gitName: string
   gitEmail: string
+  gitProxy: string
   defaultVisibility: 'private' | 'public'
   allowCreateRepo: boolean
   allowPush: boolean
   allowPull: boolean
   allowPullRequest: boolean
   allowReview: boolean
+}
+
+/** Wire value of the github/proxy.test health probe. */
+export interface GithubProxyTestValue {
+  ok: boolean
+  latencyMs: number
+  host: string
+  error: string | null
 }
 
 /** Wire value of the github/whoami connection test. */
@@ -39,12 +48,24 @@ export const configViewSchema = z.object({
   apiBase: z.string(),
   gitName: z.string(),
   gitEmail: z.string(),
+  gitProxy: z.string(),
   defaultVisibility: z.union([z.literal('private'), z.literal('public')]),
   allowCreateRepo: z.boolean(),
   allowPush: z.boolean(),
   allowPull: z.boolean(),
   allowPullRequest: z.boolean(),
   allowReview: z.boolean(),
+})
+
+export const proxyTestRequestSchema = z.object({
+  proxy: z.string().optional(),
+})
+
+export const proxyTestValueSchema = z.object({
+  ok: z.boolean(),
+  latencyMs: z.number(),
+  host: z.string(),
+  error: z.string().nullable(),
 })
 
 export const whoamiValueSchema = z.object({
@@ -66,12 +87,14 @@ export const configPatchSchema = z.object({
 declare module '@deepseek-ai/dsh-typert-protocol' {
   interface TypertRemoteMap {
     'github/whoami': (request: { draftToken?: string }) => Promise<RemoteResult<GithubWhoamiValue>>
+    'github/proxy.test': (request: { proxy?: string }) => Promise<RemoteResult<GithubProxyTestValue>>
     'github/config.get': () => Promise<RemoteResult<GithubConfigView>>
     'github/config.set': (request: { patch: Record<string, unknown> }) => Promise<RemoteResult<GithubConfigView>>
   }
   interface TypertRemoteNamespaceMap {
     github: {
       whoami: (request: { draftToken?: string }) => Promise<RemoteResult<GithubWhoamiValue>>
+      'proxy.test': (request: { proxy?: string }) => Promise<RemoteResult<GithubProxyTestValue>>
       'config.get': () => Promise<RemoteResult<GithubConfigView>>
       'config.set': (request: { patch: Record<string, unknown> }) => Promise<RemoteResult<GithubConfigView>>
     }
@@ -80,6 +103,23 @@ declare module '@deepseek-ai/dsh-typert-protocol' {
 
 /** The three Remote invocations shared by the host and client sides. */
 export const GITHUB_INVOCATIONS: readonly InvocationDescriptor[] = [
+  {
+    id: 'dsh-github#github/proxy.test',
+    service: 'github',
+    namespace: 'github',
+    method: 'proxy.test',
+    implementation: 'proxyTestRemote',
+    invocation: { kind: 'direct' },
+    parameters: [
+      {
+        name: 'request',
+        wire: 'request',
+        source: 'json',
+        codec: { mode: 'strict', typeSymbol: 'dsh-github#ProxyTestRequest', schema: proxyTestRequestSchema },
+      },
+    ],
+    result: { mode: 'strict', typeSymbol: 'dsh-github#GithubProxyTestValue', schema: proxyTestValueSchema },
+  },
   {
     id: 'dsh-github#github/whoami',
     service: 'github',
@@ -132,7 +172,9 @@ export const GITHUB_HOST_CONTRIBUTION: TypertContribution = {
   face: 'host',
   schemas: [
     { name: 'GithubConfigView', schema: configViewSchema },
+    { name: 'GithubProxyTestValue', schema: proxyTestValueSchema },
     { name: 'GithubWhoamiValue', schema: whoamiValueSchema },
+    { name: 'ProxyTestRequest', schema: proxyTestRequestSchema },
     { name: 'WhoamiRequest', schema: whoamiRequestSchema },
     { name: 'ConfigPatch', schema: configPatchSchema },
   ],
