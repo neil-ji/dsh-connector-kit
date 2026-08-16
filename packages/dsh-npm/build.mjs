@@ -1,7 +1,6 @@
 /**
- * dsh-github-wire build: pure ESM bundle consumed by both the host bundle
- * and the browser client bundle. @deepseek-ai/* and zod stay bare imports;
- * the host/client bundlers inline this package as needed.
+ * dsh-npm host build: tsc emits declarations, esbuild bundles the host entry.
+ * @deepseek-ai/* and dsh-github-connector stay bare imports (runtime reuse).
  */
 import { build } from 'esbuild'
 import { execSync } from 'node:child_process'
@@ -15,8 +14,8 @@ await build({
   outdir: 'lib',
   bundle: true,
   format: 'esm',
-  platform: 'neutral',
+  platform: 'node',
   target: 'es2022',
-  external: ['@deepseek-ai/*', 'zod'],
+  external: ['@deepseek-ai/*', 'zod', 'dsh-github-connector'],
   logLevel: 'info',
 })

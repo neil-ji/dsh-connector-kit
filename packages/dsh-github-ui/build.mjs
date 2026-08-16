@@ -16,7 +16,7 @@ import { relative, resolve } from 'node:path'
 const PACKAGE_NAME = 'dsh-github-ui'
 
 rmSync('lib', { recursive: true, force: true })
-execSync('npx tsc -p tsconfig.json', { stdio: 'inherit' })
+execSync('npx --no-install tsc -p tsconfig.json', { stdio: 'inherit' })
 
 /** Turn *.module.css imports into hashed class-name modules + style injection. */
 const cssModulesPlugin = () => ({
