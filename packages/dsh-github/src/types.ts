@@ -181,7 +181,7 @@ export interface GithubArtifact {
   id: number
   name: string
   size_in_bytes: number
-  archive_download_url: string
+  archive_download_url?: string
   expired: boolean
   created_at: string
 }

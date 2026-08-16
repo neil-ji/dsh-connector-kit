@@ -167,7 +167,7 @@ export class GitHubService extends TypertRemoteService {
   /** Submit a PR review. */
   async createReview(req: CreateReviewRequest): Promise<{ state: string }> {
     this.assertAllowed('allowReview')
-    return githubRequest<{ state: string }>({
+    const review = await githubRequest<{ state: string }>({
       method: 'POST',
       path: `/repos/${req.owner}/${req.repo}/pulls/${req.pullNumber}/reviews`,
       token: await this.token(),
@@ -177,6 +177,7 @@ export class GitHubService extends TypertRemoteService {
         ...(req.body === undefined ? {} : { body: req.body }),
       },
     })
+    return { state: review.state }
   }
 
 
@@ -356,12 +357,13 @@ export class GitHubService extends TypertRemoteService {
   /** Read the Pages site configuration and the latest build status. */
   async getPagesStatus(req: { owner: string; repo: string }): Promise<GithubPagesStatus> {
     this.assertAllowed('allowPages')
-    return githubRequest<GithubPagesStatus>({
+    const pages = await githubRequest<Record<string, unknown>>({
       method: 'GET',
       path: `/repos/${req.owner}/${req.repo}/pages`,
       token: await this.token(),
       apiBase: this.apiBase,
     })
+    return this.projectPages(pages)
   }
 
   /** Request a new Pages build (e.g. after pushing fresh static content). */
@@ -430,13 +432,13 @@ export class GitHubService extends TypertRemoteService {
   /** List artifacts produced by a workflow run. */
   async listRunArtifacts(req: ListRunArtifactsRequest): Promise<GithubArtifact[]> {
     this.assertAllowed('allowActions')
-    const payload = await githubRequest<{ artifacts: GithubArtifact[] }>({
+    const payload = await githubRequest<{ artifacts: Array<Record<string, unknown>> }>({
       method: 'GET',
       path: `/repos/${req.owner}/${req.repo}/actions/runs/${req.runId}/artifacts`,
       token: await this.token(),
       apiBase: this.apiBase,
     })
-    return payload.artifacts ?? []
+    return (payload.artifacts ?? []).map(artifact => this.projectArtifact(artifact))
   }
 
   /**
@@ -470,43 +472,51 @@ export class GitHubService extends TypertRemoteService {
   /** Authenticated /user identity for the agent (scopes of classic PATs). */
   async getIdentity(): Promise<GithubUser> {
     this.assertAllowed('allowPull')
-    return this.whoami()
+    const user = await this.whoami()
+    return {
+      login: user.login,
+      name: user.name,
+      html_url: user.html_url,
+      ...(user.scopes === undefined ? {} : { scopes: user.scopes }),
+    }
   }
 
   /** Full repository metadata (GET /repos/{owner}/{repo}). */
   async getRepo(req: { owner: string; repo: string }): Promise<GithubRepoDetail> {
     this.assertAllowed('allowPull')
-    return githubRequest<GithubRepoDetail>({
+    const repo = await githubRequest<Record<string, unknown>>({
       method: 'GET',
       path: `/repos/${req.owner}/${req.repo}`,
       token: await this.token(),
       apiBase: this.apiBase,
     })
+    return this.projectRepoDetail(repo)
   }
 
   /** Repositories the authenticated user can see, most recently updated first. */
   async listUserRepos(req: { limit?: number }): Promise<GithubRepo[]> {
     this.assertAllowed('allowPull')
     const query = buildGithubQuery({ sort: 'updated', per_page: req.limit ?? 30 })
-    return githubRequest<GithubRepo[]>({
+    const repos = await githubRequest<Array<Record<string, unknown>>>({
       method: 'GET',
       path: '/user/repos' + query,
       token: await this.token(),
       apiBase: this.apiBase,
     })
+    return repos.map(repo => this.projectRepoSummary(repo))
   }
 
   /** Search public/accessible repositories by query. */
   async searchRepos(req: { q: string; limit?: number }): Promise<GithubRepo[]> {
     this.assertAllowed('allowPull')
     const query = buildGithubQuery({ q: req.q, per_page: req.limit ?? 10 })
-    const payload = await githubRequest<{ total_count: number; items: GithubRepo[] }>({
+    const payload = await githubRequest<{ total_count: number; items: Array<Record<string, unknown>> }>({
       method: 'GET',
       path: '/search/repositories' + query,
       token: await this.token(),
       apiBase: this.apiBase,
     })
-    return payload.items ?? []
+    return (payload.items ?? []).map(repo => this.projectRepoSummary(repo))
   }
 
   // ── business: content ───────────────────────────────────────────────────────
@@ -528,13 +538,13 @@ export class GitHubService extends TypertRemoteService {
   async getTree(req: { owner: string; repo: string; ref?: string }): Promise<GithubTreeEntry[]> {
     this.assertAllowed('allowPull')
     const ref = req.ref === undefined || req.ref === '' ? 'HEAD' : req.ref
-    const payload = await githubRequest<{ tree: GithubTreeEntry[]; truncated: boolean }>({
+    const payload = await githubRequest<{ tree: Array<Record<string, unknown>>; truncated: boolean }>({
       method: 'GET',
       path: `/repos/${req.owner}/${req.repo}/git/trees/${encodeURIComponent(ref)}?recursive=1`,
       token: await this.token(),
       apiBase: this.apiBase,
     })
-    return payload.tree ?? []
+    return (payload.tree ?? []).map(entry => this.projectTreeEntry(entry))
   }
 
   /** Readme of the repository (decoded). */
@@ -671,24 +681,26 @@ export class GitHubService extends TypertRemoteService {
     if (req.has_issues !== undefined) body.has_issues = req.has_issues
     if (req.has_wiki !== undefined) body.has_wiki = req.has_wiki
     if (req.has_projects !== undefined) body.has_projects = req.has_projects
-    return githubRequest<GithubRepo>({
+    const repo = await githubRequest<Record<string, unknown>>({
       method: 'PATCH',
       path: `/repos/${req.owner}/${req.repo}`,
       token: await this.token(),
       apiBase: this.apiBase,
       body,
     })
+    return this.projectRepoSummary(repo)
   }
 
   /** Fork a repository into the authenticated user's account. */
   async forkRepo(req: { owner: string; repo: string }): Promise<GithubRepo> {
     this.assertAllowed('allowCreateRepo')
-    return githubRequest<GithubRepo>({
+    const repo = await githubRequest<Record<string, unknown>>({
       method: 'POST',
       path: `/repos/${req.owner}/${req.repo}/forks`,
       token: await this.token(),
       apiBase: this.apiBase,
     })
+    return this.projectRepoSummary(repo)
   }
 
   /** Create or update a single file via the contents API (creates a commit). */
@@ -716,6 +728,121 @@ export class GitHubService extends TypertRemoteService {
   }
 
   // ── business: issues ────────────────────────────────────────────────────────
+
+  /** Project one REST repo payload into the agent-facing summary (user repos / search / edit / fork). */
+  private projectRepoSummary(repo: Record<string, unknown>): GithubRepo {
+    return {
+      id: repo.id as number,
+      name: repo.name as string,
+      full_name: repo.full_name as string,
+      private: repo.private as boolean,
+      html_url: repo.html_url as string,
+      clone_url: repo.clone_url as string,
+      ssh_url: repo.ssh_url as string,
+    }
+  }
+
+  /** Project one REST repo payload into the full metadata view (github_repo_get). */
+  private projectRepoDetail(repo: Record<string, unknown>): GithubRepoDetail {
+    return {
+      ...this.projectRepoSummary(repo),
+      description: (repo.description as string | null) ?? null,
+      homepage: (repo.homepage as string | null) ?? null,
+      default_branch: repo.default_branch as string,
+      visibility: repo.visibility as string,
+      language: (repo.language as string | null) ?? null,
+      topics: (repo.topics as string[] | undefined) ?? [],
+      fork: repo.fork as boolean,
+      archived: repo.archived as boolean,
+      open_issues_count: repo.open_issues_count as number,
+      stargazers_count: repo.stargazers_count as number,
+      forks_count: repo.forks_count as number,
+      pushed_at: repo.pushed_at as string,
+      updated_at: repo.updated_at as string,
+    }
+  }
+
+  /** Project one REST git-tree entry (drops url; size keeps its number|null shape). */
+  private projectTreeEntry(entry: Record<string, unknown>): GithubTreeEntry {
+    return {
+      path: entry.path as string,
+      type: entry.type as string,
+      mode: entry.mode as string,
+      sha: entry.sha as string,
+      size: entry.size === undefined ? null : (entry.size as number | null),
+    }
+  }
+
+  /** Project one REST release payload. */
+  private projectRelease(release: Record<string, unknown>): GithubRelease {
+    return {
+      id: release.id as number,
+      tag_name: release.tag_name as string,
+      name: (release.name as string | null) ?? null,
+      draft: release.draft as boolean,
+      prerelease: release.prerelease as boolean,
+      html_url: release.html_url as string,
+      body: (release.body as string | null) ?? null,
+      published_at: (release.published_at as string | null) ?? null,
+      target_commitish: (release.target_commitish as string | null) ?? null,
+    }
+  }
+
+  /** Project one REST workflow payload (ids for github_workflow_dispatch). */
+  private projectWorkflow(workflow: Record<string, unknown>): GithubWorkflow {
+    return {
+      id: workflow.id as number,
+      name: workflow.name as string,
+      path: workflow.path as string,
+      state: workflow.state as string,
+      html_url: workflow.html_url as string,
+    }
+  }
+
+  /** Project one REST workflow-run job payload (failure diagnosis). */
+  private projectJob(job: Record<string, unknown>): GithubJob {
+    const steps = (job.steps as Array<Record<string, unknown>> | undefined) ?? []
+    return {
+      id: job.id as number,
+      name: job.name as string,
+      status: job.status as string,
+      conclusion: (job.conclusion as string | null) ?? null,
+      html_url: job.html_url as string,
+      started_at: (job.started_at as string | null) ?? null,
+      completed_at: (job.completed_at as string | null) ?? null,
+      steps: steps.map(step => ({
+        number: step.number as number,
+        name: step.name as string,
+        status: step.status as string,
+        conclusion: (step.conclusion as string | null) ?? null,
+      })),
+    }
+  }
+
+  /** Project one REST artifact payload. */
+  private projectArtifact(artifact: Record<string, unknown>): GithubArtifact {
+    return {
+      id: artifact.id as number,
+      name: artifact.name as string,
+      size_in_bytes: artifact.size_in_bytes as number,
+      expired: artifact.expired as boolean,
+      created_at: artifact.created_at as string,
+    }
+  }
+
+  /** Project the Pages site payload (status/cname may be null; source is optional). */
+  private projectPages(pages: Record<string, unknown>): GithubPagesStatus {
+    const source = pages.source as { branch?: string; path?: string } | undefined
+    return {
+      html_url: pages.html_url as string,
+      status: (pages.status as string | null) ?? null,
+      cname: (pages.cname as string | null) ?? null,
+      ...(source === undefined ? {} : {
+        source: { branch: source.branch ?? '', path: source.path ?? '' },
+      }),
+      ...(pages.build_type === undefined ? {} : { build_type: pages.build_type as string }),
+    }
+  }
 
   /** Project one REST issue payload into the wire-safe shape. */
   private projectIssue(issue: {
@@ -797,12 +924,13 @@ export class GitHubService extends TypertRemoteService {
   async listReleases(req: { owner: string; repo: string; limit?: number }): Promise<GithubRelease[]> {
     this.assertAllowed('allowRelease')
     const query = buildGithubQuery({ per_page: req.limit ?? 30 })
-    return githubRequest<GithubRelease[]>({
+    const releases = await githubRequest<Array<Record<string, unknown>>>({
       method: 'GET',
       path: `/repos/${req.owner}/${req.repo}/releases${query}`,
       token: await this.token(),
       apiBase: this.apiBase,
     })
+    return releases.map(release => this.projectRelease(release))
   }
 
   /** Create a release (draft supported; the tag is created when missing). */
@@ -814,13 +942,14 @@ export class GitHubService extends TypertRemoteService {
     if (req.body !== undefined) body.body = req.body
     if (req.draft !== undefined) body.draft = req.draft
     if (req.prerelease !== undefined) body.prerelease = req.prerelease
-    return githubRequest<GithubRelease>({
+    const release = await githubRequest<Record<string, unknown>>({
       method: 'POST',
       path: `/repos/${req.owner}/${req.repo}/releases`,
       token: await this.token(),
       apiBase: this.apiBase,
       body,
     })
+    return this.projectRelease(release)
   }
 
   // ── business: actions extended ──────────────────────────────────────────────
@@ -828,25 +957,25 @@ export class GitHubService extends TypertRemoteService {
   /** List workflows of a repository (ids for github_workflow_dispatch). */
   async listWorkflows(req: { owner: string; repo: string }): Promise<GithubWorkflow[]> {
     this.assertAllowed('allowActions')
-    const payload = await githubRequest<{ total_count: number; workflows: GithubWorkflow[] }>({
+    const payload = await githubRequest<{ total_count: number; workflows: Array<Record<string, unknown>> }>({
       method: 'GET',
       path: `/repos/${req.owner}/${req.repo}/actions/workflows`,
       token: await this.token(),
       apiBase: this.apiBase,
     })
-    return payload.workflows ?? []
+    return (payload.workflows ?? []).map(workflow => this.projectWorkflow(workflow))
   }
 
   /** Jobs (with steps) of one workflow run — failure diagnosis. */
   async listWorkflowJobs(req: { owner: string; repo: string; runId: number }): Promise<GithubJob[]> {
     this.assertAllowed('allowActions')
-    const payload = await githubRequest<{ total_count: number; jobs: GithubJob[] }>({
+    const payload = await githubRequest<{ total_count: number; jobs: Array<Record<string, unknown>> }>({
       method: 'GET',
       path: `/repos/${req.owner}/${req.repo}/actions/runs/${req.runId}/jobs`,
       token: await this.token(),
       apiBase: this.apiBase,
     })
-    return payload.jobs ?? []
+    return (payload.jobs ?? []).map(job => this.projectJob(job))
   }
 
   /** List Actions secret NAMES (values are never exposed by GitHub or here). */

@@ -594,6 +594,8 @@ export function registerGithubTools(ctx: Context, github: GitHubService): void {
           full_name: { type: 'string', required: true },
           private: { type: 'boolean', required: true },
           html_url: { type: 'string', required: true },
+          clone_url: { type: 'string' },
+          ssh_url: { type: 'string' },
           description: { oneOf: [{ type: 'string' }, { type: 'null' }] },
           homepage: { oneOf: [{ type: 'string' }, { type: 'null' }] },
           default_branch: { type: 'string', required: true },
@@ -712,7 +714,7 @@ export function registerGithubTools(ctx: Context, github: GitHubService): void {
             properties: {
               kind: { type: 'string', const: 'dir', required: true },
               count: { type: 'integer', required: true },
-              entries: { type: 'array', required: true, items: { type: 'object', additionalProperties: false, properties: { name: { type: 'string', required: true }, path: { type: 'string', required: true }, type: { type: 'string', required: true }, size: { type: 'integer', required: true } } } },
+              entries: { type: 'array', required: true, items: { type: 'object', additionalProperties: false, properties: { name: { type: 'string', required: true }, path: { type: 'string', required: true }, type: { type: 'string', required: true }, size: { type: 'integer' } } } },
             },
           },
         ],
@@ -735,7 +737,12 @@ export function registerGithubTools(ctx: Context, github: GitHubService): void {
         return {
           kind: 'dir' as const,
           count: content.length,
-          entries: content.map(entry => ({ name: entry.name, path: entry.path, type: entry.type, size: entry.size })),
+          entries: content.map(entry => ({
+            name: entry.name,
+            path: entry.path,
+            type: entry.type,
+            ...(typeof entry.size === 'number' ? { size: entry.size } : {}),
+          })),
         }
       }
       return {
@@ -744,7 +751,7 @@ export function registerGithubTools(ctx: Context, github: GitHubService): void {
         path: content.path,
         size: content.size,
         content: decodeBase64Content(content.content, content.encoding),
-        truncated: content.truncated,
+        truncated: content.truncated ?? false,
       }
     },
     presentCall: args => ({ card: 'generic', title: 'Read GitHub content', rawInput: { owner: args.owner, repo: args.repo, path: args.path } }),

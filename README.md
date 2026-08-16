@@ -66,20 +66,96 @@ pnpm typecheck
 ### 已实现
 
 - host 面 `ctx.github`（GitHubService extends TypertRemoteService）：REST + git（push/pull）。
-- 40 个 Agent 工具，覆盖：
-  - 仓库/身份：`github_whoami` / `github_repo_get` / `github_user_repos` / `github_search_repos` / `github_repo_create` / `github_repo_edit` / `github_fork`
-  - git：`github_clone` / `github_pull` / `github_push`（origin 推断，永不 force）
-  - 内容：`github_content`（文件/目录）/ `github_repo_tree` / `github_readme` / `github_file_write`（API 单文件提交）
-  - 提交/分支/tag：`github_commits` / `github_commit_get` / `github_branches` / `github_branch_get` / `github_tags`
-  - PR/审查：`github_pr` / `github_pr_list` / `github_pr_get` / `github_review` / `github_review_list`
-  - Issue：`github_issue_create` / `github_issues` / `github_issue_get` / `github_issue_comment`（PR 也适用）
-  - Release：`github_releases` / `github_release_create`（支持 draft）
-  - Pages：`github_pages_status` / `github_pages_build`
-  - Actions：`github_workflows` / `github_workflow_dispatch` / `github_workflow_runs` / `github_workflow_run` / `github_workflow_jobs` / `github_workflow_artifacts` / `github_artifact_download` / `github_secrets`（仅名称，不含值）
+- 40 个 Agent 工具（按领域）：
+
+  **仓库 / 身份**
+
+  | 工具 | 说明 |
+  |---|---|
+  | `github_whoami` | 认证身份 + token scopes（classic PAT） |
+  | `github_repo_get` | 仓库元数据（描述、默认分支、star 等） |
+  | `github_repo_create` | 创建远程仓库（owner/repo 名被拒绝） |
+  | `github_repo_edit` | 改安全元数据（描述/homepage/topics/开关） |
+  | `github_user_repos` | 列出当前账号可访问的仓库 |
+  | `github_search_repos` | 搜索仓库 |
+  | `github_fork` | fork 到自己的账号 |
+
+  **内容**
+
+  | 工具 | 说明 |
+  |---|---|
+  | `github_content` | 读文件（UTF-8 解码）或列目录 |
+  | `github_repo_tree` | 递归文件树（带 sha） |
+  | `github_readme` | 读 README |
+  | `github_file_write` | Contents API 单文件提交 |
+  | `github_commits` | 提交列表（可按路径/分支过滤） |
+  | `github_commit_get` | 单提交 + 变更文件 patch |
+
+  **分支 / 标签**
+
+  | 工具 | 说明 |
+  |---|---|
+  | `github_branches` / `github_branch_get` | 分支列表 / 分支保护规则 |
+  | `github_tags` | 标签列表 |
+
+  **git 操作（走 ctx.shell + 会话沙箱策略 + 可选 gitProxy）**
+
+  | 工具 | 说明 |
+  |---|---|
+  | `github_clone` | clone 到本地（配合 fork→改→推→PR 流程） |
+  | `github_pull` | pull |
+  | `github_push` | add/commit/set-url/push（origin 推断，**永不 force**） |
+
+  **PR / 审查**
+
+  | 工具 | 说明 |
+  |---|---|
+  | `github_pr` / `github_pr_list` / `github_pr_get` | 创建 / 列表 / 读取 PR |
+  | `github_review` | 提交 review（APPROVE / REQUEST_CHANGES / COMMENT） |
+  | `github_review_list` | PR 变更文件 + 已有评论 |
+
+  **Issue**
+
+  | 工具 | 说明 |
+  |---|---|
+  | `github_issue_create` / `github_issues` / `github_issue_get` | 创建 / 列表 / 读取（PR 也出现） |
+  | `github_issue_comment` | 评论 issue/PR |
+
+  **Release**
+
+  | 工具 | 说明 |
+  |---|---|
+  | `github_releases` / `github_release_create` | 列表 / 创建（支持 draft/prerelease，tag 缺失自动创建） |
+
+  **Pages**
+
+  | 工具 | 说明 |
+  |---|---|
+  | `github_pages_status` / `github_pages_build` | Pages 配置与构建状态 / 触发构建 |
+
+  **Actions**
+
+  | 工具 | 说明 |
+  |---|---|
+  | `github_workflows` | 工作流列表 |
+  | `github_workflow_dispatch` | 触发 workflow_dispatch（支持 inputs） |
+  | `github_workflow_runs` / `github_workflow_run` | 运行列表（可按状态过滤）/ 单次运行 |
+  | `github_workflow_jobs` | 作业与步骤（失败诊断） |
+  | `github_workflow_artifacts` / `github_artifact_download` | artifacts 列表 / 下载 zip |
+  | `github_secrets` | 密钥**名称**列表（值永不暴露） |
+
+  > 全部输出经 service 层投影 + 工具 schema 严格校验（additionalProperties: false），不会泄露 REST 原始字段。
 - 权限闸门：`allowCreateRepo` / `allowPush` / `allowPull` / `allowPullRequest` / `allowReview` / `allowPages` / `allowActions` / `allowIssues` / `allowRelease`（Web 设置页可关）。推送 `.github/workflows` 文件需要 token 含 `workflow` scope（fine-grained PAT 需 Workflows 写入），设置页有提示。
 - 刻意不提供：删除仓库/分支、force push、visibility 变更、webhook/secret 写入等任何危险操作。
 - Web 设置页：token 写入/移除、连接测试、权限开关、git 身份、默认可见性。
 - 单测：`git-utils`、`github-rest`（mock fetch + token 不回显）。
+
+### 修复记录
+
+- 2026-08-16 — **github_push/pull/clone 内部报错（Cordis inject）**：`GitHubService` 直接访问 `ctx.sandboxPolicy`，但插件级 inject 未声明该服务，Cordis 抛 `cannot get property "sandboxPolicy" without inject`（工具在跑 git 之前就失败）。改为 `ctx.get('sandboxPolicy')`（与内置 bash 工具一致）。
+- 2026-08-16 — **REST 工具输出超 schema（dogfooding 发现）**：一批只读/写工具把完整 REST 对象透传给工具输出，严格 schema（`additionalProperties: false`）拒绝。已在 service 层统一投影（repo/tree/release/workflow/job/artifact/pages/identity/review）。
+- 2026-08-16 — **`github_whoami` scopes 恒为空**：`X-OAuth-Scopes` 响应头从未解析；`fetchWhoami` 现在读取该头并合并进结果。
+- 2026-08-16 — **`github_content` 目录条目 size**：REST 对 symlink/submodule 条目无 size 字段（undefined 触发 lossless JSON 拒绝）；schema 改为可选并在 execute 侧守卫。
 
 ### 待办
 

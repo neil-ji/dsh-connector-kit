@@ -138,7 +138,31 @@ export async function githubRequestBuffer(options: GithubRequestOptions): Promis
   return response.arrayBuffer()
 }
 
-/** Fetch the authenticated /user identity (connection test). */
+/**
+ * Fetch the authenticated /user identity (connection test), including the
+ * classic-PAT scopes from the X-OAuth-Scopes response header (not part of the
+ * JSON body). githubRequest cannot surface response headers, so this performs
+ * its own fetch; the token stays in the Authorization header only.
+ */
 export async function fetchWhoami(apiBase: string, token: string): Promise<GithubUser> {
-  return githubRequest<GithubUser>({ method: 'GET', path: '/user', token, apiBase })
+  let response: Response
+  try {
+    response = await fetch(apiBase + '/user', { method: 'GET', headers: authHeaders(token, undefined) })
+  } catch (error) {
+    throw new GithubError('REQUEST_FAILED', 'github request to /user failed: ' + String(error))
+  }
+  if (!response.ok) {
+    const text = await response.text().catch(() => '')
+    throw new GithubError(
+      response.status === 401 ? 'AUTH_FAILED' : 'REQUEST_FAILED',
+      'GitHub /user responded ' + response.status + ': ' + text.slice(0, 500),
+      response.status,
+    )
+  }
+  const user = await response.json() as Omit<GithubUser, 'scopes'>
+  const scopesHeader = response.headers.get('x-oauth-scopes')
+  const scopes = scopesHeader === null || scopesHeader.trim() === ''
+    ? undefined
+    : scopesHeader.split(',').map(scope => scope.trim()).filter(scope => scope !== '')
+  return { ...user, ...(scopes === undefined ? {} : { scopes }) }
 }
