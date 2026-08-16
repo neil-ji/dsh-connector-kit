@@ -43,11 +43,11 @@ jobs:
       - name: Align package versions
         run: pnpm -r exec npm pkg set version="$VERSION"
 
+      - name: Build (lib/ is gitignored, must exist for cross-package typecheck)
+        run: pnpm -r build
+
       - name: Typecheck
         run: pnpm -r typecheck
-
-      - name: Build
-        run: pnpm -r build
 
       - name: Test
         run: pnpm test
