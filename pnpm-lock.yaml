@@ -135,10 +135,6 @@ importers:
         version: 4.4.3
 
   packages/dsh-npm:
-    dependencies:
-      dsh-github-connector:
-        specifier: workspace:^
-        version: link:../dsh-github
     devDependencies:
       '@deepseek-ai/cordis':
         specifier: ^4.0.1
@@ -149,6 +145,9 @@ importers:
       '@deepseek-ai/dsh-tools':
         specifier: ^0.1.0-rc.6
         version: 0.1.0-rc.6(f8724372086ccc1457fc84e7becee2e0)
+      dsh-github-connector:
+        specifier: workspace:^
+        version: link:../dsh-github
       esbuild:
         specifier: ^0.25.0
         version: 0.25.12

@@ -21,20 +21,13 @@
     "build": "node build.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
-  "dependencies": {
-    "dsh-github-connector": "workspace:^"
-  },
-  "peerDependencies": {
-    "@deepseek-ai/cordis": "^4.0.1",
-    "@deepseek-ai/dsh-shell": "^0.1.0-rc.6",
-    "@deepseek-ai/dsh-tools": "^0.1.0-rc.6"
-  },
   "devDependencies": {
     "@deepseek-ai/cordis": "^4.0.1",
     "@deepseek-ai/dsh-shell": "^0.1.0-rc.6",
     "@deepseek-ai/dsh-tools": "^0.1.0-rc.6",
     "esbuild": "^0.25.0",
-    "typescript": "^5.6.0"
+    "typescript": "^5.6.0",
+    "dsh-github-connector": "workspace:^"
   },
   "publishConfig": {
     "access": "public"
