@@ -17,11 +17,11 @@ importers:
 
   packages/dsh-github:
     dependencies:
-      dsh-github-ui:
-        specifier: file:../dsh-github-ui
+      dsh-github-connector-ui:
+        specifier: workspace:^
         version: link:../dsh-github-ui
-      dsh-github-wire:
-        specifier: file:../dsh-github-wire
+      dsh-github-connector-wire:
+        specifier: workspace:^
         version: link:../dsh-github-wire
     devDependencies:
       '@deepseek-ai/cordis':
@@ -60,8 +60,8 @@ importers:
 
   packages/dsh-github-ui:
     dependencies:
-      dsh-github-wire:
-        specifier: file:../dsh-github-wire
+      dsh-github-connector-wire:
+        specifier: workspace:^
         version: link:../dsh-github-wire
     devDependencies:
       '@deepseek-ai/cordis':

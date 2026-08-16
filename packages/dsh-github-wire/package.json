@@ -1,7 +1,7 @@
 {
-  "name": "dsh-github-wire",
+  "name": "dsh-github-connector-wire",
   "version": "0.1.0",
-  "description": "Shared wire contract for dsh-github: zod schemas + strict Typert invocation descriptors + host/remote contributions",
+  "description": "Shared wire contract for dsh-github-connector: zod schemas + strict Typert invocation descriptors + host/remote contributions",
   "type": "module",
   "main": "lib/index.js",
   "types": "lib/types/index.d.ts",
@@ -13,6 +13,9 @@
     "./package.json": "./package.json"
   },
   "files": ["lib/index.js", "lib/types/**/*.js", "lib/types/**/*.d.ts"],
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "build": "node build.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit"

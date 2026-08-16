@@ -1,5 +1,5 @@
 {
-  "name": "dsh-github",
+  "name": "dsh-github-connector",
   "version": "0.1.0",
   "description": "Third-party DeepSeek Harness bundle: GitHub connector (host-side capability, agent tools, Typert Remote)",
   "type": "module",
@@ -28,8 +28,11 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "dsh-github-ui": "file:../dsh-github-ui",
-    "dsh-github-wire": "file:../dsh-github-wire"
+    "dsh-github-connector-ui": "workspace:^",
+    "dsh-github-connector-wire": "workspace:^"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "peerDependencies": {
     "@deepseek-ai/cordis": "^4.0.1",

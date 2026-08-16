@@ -6,9 +6,11 @@
 
 | 包 | 角色 | 关键声明 |
 |---|---|---|
-| `dsh-github` | bundle + host 面插件 | `dsh.bundle.patch` + `cordis.patch.yml` |
-| `dsh-github-ui` | client 面插件（设置页） | `dsh.client` + `exports["./client"]` |
-| `dsh-github-wire` | 共享 wire 契约（zod + strict Typert descriptors） | 被 host/client 同时依赖 |
+| `dsh-github-connector`（源码目录 `dsh-github`） | bundle + host 面插件，npm 包 | `dsh.bundle.patch` + `cordis.patch.yml` |
+| `dsh-github-connector-ui`（源码目录 `dsh-github-ui`） | client 面插件（设置页），npm 包 | `dsh.client` + `exports["./client"]` |
+| `dsh-github-connector-wire`（源码目录 `dsh-github-wire`） | 共享 wire 契约（zod + strict Typert descriptors），npm 包 | 被 host/client 同时依赖 |
+
+> npm 包名用 `dsh-github-connector` 系列（`dsh-github` 在 npm 已被占用）；运行时插件标识仍为 `dsh-github`，不影响已安装配置。
 
 ## 安装（用户侧）
 
@@ -20,12 +22,12 @@ dsh plugin --profile <name> add file:./packages/dsh-github
 dsh plugin --profile <name> add github:you/dsh-github-connector#<sha>
 # 在 profile 的 pnpm-workspace.yaml 里加：
 #   allowBuilds:
-#     dsh-github: true
-#     dsh-github-ui: true
-#     dsh-github-wire: true
+#     dsh-github-connector: true
+#     dsh-github-connector-ui: true
+#     dsh-github-connector-wire: true
 
 # npm / tarball 安装（发布产物，无需 build 授权）
-dsh plugin --profile <name> add dsh-github
+dsh plugin --profile <name> add dsh-github-connector
 dsh plugin --profile <name> add ./dsh-github-0.1.0.tgz
 ```
 
@@ -60,6 +62,25 @@ pnpm typecheck
 ## 依赖版本
 
 依赖 `@deepseek-ai/*` 当前 `0.1.0-rc.5`（pre-release），以 npm 实际发布版本为准。client bundle 的 external 清单与 `window.__ModuleLoader__.load` 契约见 `packages/dsh-github-ui/tsdown.config.ts`。
+
+## 发布 / CICD
+
+打 tag 即自动发布 npm 并更新 GitHub Pages（功能落地页 + 官方文档页）：
+
+```sh
+git tag vX.Y.Z
+git push origin vX.Y.Z   # 触发 .github/workflows/release.yml
+```
+
+工作流依次执行：对齐三包版本（tag 为准）→ typecheck → build → test → `pnpm -r publish`（npm，wire → ui → host 拓扑序）→ 版本号注入构建 `site/` → 部署 Pages。`main` 上 `site/` 变更会触发 `pages.yml` 直接预览更新（不发布 npm）。
+
+**前置条件（一次性）**
+
+1. **npm 首次发布**：本地用 npm 账号手动 publish 三个包各一次（`dsh-github-connector-wire` → `dsh-github-connector-ui` → `dsh-github-connector`），建立包名记录；后续新版本由 CI 自动发布；
+2. 仓库 **Settings → Secrets → Actions** 新建 `NPM_TOKEN`（npmjs.com → Access Tokens → Generate New Token → Automation）；
+3. 仓库 **Settings → Pages → Source** 选择 **GitHub Actions**。
+
+**站点结构**（`site/`）：`landing/index.html` 为功能落地页（部署在站点根 `/`），`docs/index.html` 为官方文档（`/docs/`），两页互相导航；版本号占位符 `__DSH_VERSION__` 在构建时替换为 tag 版本。
 
 ## 当前状态 / 路线图
 

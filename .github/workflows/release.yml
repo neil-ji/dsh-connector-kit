@@ -1,0 +1,72 @@
+name: release
+
+# 发布工作流：打 tag vX.Y.Z -> 构建/测试 -> npm 发布三包 -> 更新 GitHub Pages（落地页 + 文档页）
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: github-pages
+  cancel-in-progress: true
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: 'https://registry.npmjs.org'
+          cache: pnpm
+
+      - name: Extract version from tag
+        run: echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Align package versions
+        run: pnpm -r exec npm pkg set version="$VERSION"
+
+      - name: Typecheck
+        run: pnpm -r typecheck
+
+      - name: Build
+        run: pnpm -r build
+
+      - name: Test
+        run: pnpm test
+
+      - name: Publish to npm
+        run: pnpm -r publish --no-git-checks --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Build Pages site
+        run: |
+          sed -i "s/__DSH_VERSION__/${VERSION}/g" site/landing/index.html site/docs/index.html
+          rm -rf site-dist
+          mkdir -p site-dist/docs
+          cp site/landing/index.html site-dist/index.html
+          cp site/docs/index.html site-dist/docs/index.html
+          cp -r site/assets site-dist/assets
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site-dist
+
+      - uses: actions/deploy-pages@v4
