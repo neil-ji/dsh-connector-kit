@@ -10,6 +10,9 @@
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://neil-ji.github.io/dsh-connector-kit/">
 <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/style.css">
 </head>
 <body>
@@ -59,27 +62,39 @@
     <h2>核心能力</h2>
     <p class="sub">围绕发布工作流设计：建仓 → 写代码 → 提交 → 推送 → PR → 审查 → 发版 → 发布到 npm</p>
     <div class="grid">
-      <div class="card"><h3>仓库 &amp; 身份</h3><ul>
+      <div class="card span-2">
+        <div class="card-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h10a2 2 0 0 1 2 2v14H6a2 2 0 0 1-2-2Z"/><path d="M16 14h4v6H8"/><path d="M8 8h4"/></svg></div>
+        <h3>仓库 &amp; 身份</h3><ul>
         <li>创建 / 读取 / 编辑仓库元数据</li>
         <li>用户仓库列表、仓库搜索、fork</li>
         <li>whoami 显示 token scopes</li></ul></div>
-      <div class="card"><h3>git 操作</h3><ul>
+      <div class="card">
+        <div class="card-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="3" x2="6" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></svg></div>
+        <h3>git 操作</h3><ul>
         <li><code>github_push</code>：add/commit/push（永不 force）</li>
         <li><code>github_pull</code> / <code>github_clone</code></li>
         <li>token 走内联 credential helper，不进仓库配置</li></ul></div>
-      <div class="card"><h3>内容与提交</h3><ul>
+      <div class="card">
+        <div class="card-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M16 13H8"/><path d="M16 17H8"/></svg></div>
+        <h3>内容与提交</h3><ul>
         <li>读文件 / 目录、整棵文件树、README</li>
         <li>Contents API 单文件提交</li>
         <li>提交列表与单个提交的变更 patch</li></ul></div>
-      <div class="card"><h3>PR &amp; 审查</h3><ul>
+      <div class="card">
+        <div class="card-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M6 21V9a9 9 0 0 0 9 9"/></svg></div>
+        <h3>PR &amp; 审查</h3><ul>
         <li>创建 / 列表 / 读取 PR</li>
         <li>提交 review（approve / request changes）</li>
         <li>PR 变更文件 + 评论</li></ul></div>
-      <div class="card"><h3>Issue / Release / Pages / Actions</h3><ul>
+      <div class="card span-2">
+        <div class="card-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/></svg></div>
+        <h3>Issue / Release / Pages / Actions</h3><ul>
         <li>Issue 全流程 + 评论（PR 通用）</li>
         <li>Release 创建（支持 draft）</li>
         <li>工作流查询 / 触发 / artifacts，Pages 状态与构建</li></ul></div>
-      <div class="card"><h3>Web 设置页</h3><ul>
+      <div class="card">
+        <div class="card-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></div>
+        <h3>Web 设置页</h3><ul>
         <li>token 凭证写入（只写不回读）</li>
         <li>git 身份、默认可见性、权限开关</li>
         <li><code>gitProxy</code> 代理配置 + 健康检查</li></ul></div>
