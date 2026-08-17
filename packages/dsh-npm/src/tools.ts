@@ -10,6 +10,7 @@ import type { NpmService } from './npm-service.ts'
 import { launchPackage } from './launch.ts'
 import { writeScaffold } from './scaffold.ts'
 import { renderScaffold } from './scaffold.ts'
+import { shellQuote } from './github-shell.ts'
 
 export function registerNpmTools(ctx: Context, npm: NpmService, getGithub: () => GitHubService | undefined): void {
   ctx.tools.register(defineTool({
@@ -146,12 +147,14 @@ export function registerNpmTools(ctx: Context, npm: NpmService, getGithub: () =>
   ctx.tools.register(defineTool({
     name: 'npm_launch',
     description:
-      'One-shot launch of an open-source npm package: validates the npm name, '
-      + 'scaffolds a publishable TS package (with OIDC release workflow + Pages '
-      + 'site), creates the GitHub repo, pushes the initial commit, enables Pages '
-      + 'with GitHub Actions, configures the npm trusted publisher (pauses for an '
-      + 'OTP when needed) and creates the v0.1.0 annotated tag to trigger the CI '
-      + 'npm publish. Requires the dsh-connector-github plugin (GitHub credentials).',
+      'Launch an open-source npm package in two stages (SOP): stage "launch" '
+      + '(default) validates the npm name, scaffolds a publishable TS package (OIDC '
+      + 'release workflow + Pages site), creates the GitHub repo, pushes the initial '
+      + 'commit and enables Pages — then returns a humanScript with the first npm '
+      + 'publish + npm trust (browser 2FA; the agent cannot do this). After the human '
+      + 'runs it, call again with stage "tag" to create the v<next> annotated tag, and '
+      + 'CI publishes future versions via OIDC with no 2FA. Requires the '
+      + 'dsh-connector-github plugin (GitHub credentials).',
     parameters: {
       name: { type: 'string', required: true, description: 'npm package name (also the GitHub repo name).' },
       description: { type: 'string', description: 'One-line package description.' },
@@ -160,7 +163,7 @@ export function registerNpmTools(ctx: Context, npm: NpmService, getGithub: () =>
       author: { type: 'string', description: 'Author name (LICENSE/README).' },
       dir: { type: 'string', description: 'Local output directory (defaults to ./<name>).' },
       initialVersion: { type: 'string', description: 'First release version (default 0.1.0).' },
-      skipTrust: { type: 'boolean', description: 'Skip the npm trust step (already configured); still create the tag.' },
+      stage: { type: 'string', enum: ['launch', 'tag'], description: "'launch' (default): scaffold + repo + push + pages, returns the human 2FA script (first npm publish + npm trust). 'tag': after the human ran that script, create the v<next> tag to trigger the CI OIDC release." },
     },
     output: {
       schema: {
@@ -168,6 +171,8 @@ export function registerNpmTools(ctx: Context, npm: NpmService, getGithub: () =>
         additionalProperties: false,
         properties: {
           dir: { type: 'string', required: true },
+          stage: { type: 'string', enum: ['awaiting-human-2fa', 'tag-created'], required: true },
+          humanScript: { type: 'string' },
           repo: { type: 'object', additionalProperties: false, properties: { fullName: { type: 'string', required: true }, htmlUrl: { type: 'string', required: true } }, required: true },
           pushed: { type: 'boolean', required: true },
           pages: { type: 'object', additionalProperties: false, properties: { configured: { type: 'boolean', required: true }, url: { type: 'string' }, detail: { type: 'string' } }, required: true },
@@ -178,9 +183,9 @@ export function registerNpmTools(ctx: Context, npm: NpmService, getGithub: () =>
       },
       render: (_args, value) => [{
         type: 'text',
-        text: 'Launched ' + value.repo.fullName + ' (' + value.repo.htmlUrl + ')'
-          + (value.tag === undefined ? '' : ' tag ' + value.tag.name)
-          + (value.trust.status === 'needs-otp' ? ' — npm trust needs OTP: ' + (value.trust.command ?? '') : ''),
+        text: value.stage === 'tag-created'
+          ? 'Tag ' + (value.tag?.name ?? '') + ' created on ' + value.repo.fullName + ' — CI is publishing via OIDC (no 2FA).'
+          : 'Launched ' + value.repo.fullName + ' (' + value.repo.htmlUrl + '). Next: run the humanScript (npm publish + npm trust, browser 2FA), then call npm_launch with stage: "tag".\n' + (value.humanScript ?? ''),
       }],
     },
     async execute(args, exec) {
@@ -196,10 +201,118 @@ export function registerNpmTools(ctx: Context, npm: NpmService, getGithub: () =>
         ...(args.author === undefined ? {} : { author: args.author }),
         ...(args.dir === undefined ? {} : { dir: args.dir }),
         ...(args.initialVersion === undefined ? {} : { initialVersion: args.initialVersion }),
-        ...(args.skipTrust === undefined ? {} : { skipTrust: args.skipTrust }),
+        ...(args.stage === undefined ? {} : { stage: args.stage }),
         ...(exec.agent?.session === undefined ? {} : { session: exec.agent.session }),
       })
     },
     presentCall: args => ({ card: 'generic', title: 'Launch npm package', rawInput: args.name }),
+  }))
+
+  ctx.tools.register(defineTool({
+    name: 'npm_first_publish',
+    description:
+      'Generate the human 2FA script for the first npm release of a scaffolded '
+      + 'package: npm publish + npm trust (OIDC publisher). npm 2FA is browser-'
+      + 'session based and npm trust has no --otp, so the agent cannot run this — '
+      + 'the script is returned for the human to execute in a terminal. After it '
+      + 'succeeds, call npm_launch with stage: "tag".',
+    parameters: {
+      pkg: { type: 'string', required: true, description: 'npm package name.' },
+      repository: { type: 'string', required: true, description: 'owner/repo on GitHub.' },
+      dir: { type: 'string', description: 'Local package directory (defaults to ./<pkg>).' },
+      workflowFile: { type: 'string', description: 'Workflow file name (default release.yml).' },
+    },
+    output: {
+      schema: {
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+          status: { type: 'string', enum: ['generated'], required: true },
+          script: { type: 'string', required: true },
+        },
+      },
+      render: (_args, value) => [{ type: 'text', text: 'Run in a terminal (browser 2FA):\n' + value.script }],
+    },
+    async execute(args) {
+      const script = [
+        '# 首次发布 + OIDC trust(浏览器 2FA,每条确认一次)',
+        'cd ' + shellQuote(args.dir ?? args.pkg),
+        'npm publish',
+        'npm trust github ' + args.pkg + ' --file ' + (args.workflowFile ?? 'release.yml') + ' --repository ' + args.repository + ' --allow-publish -y',
+      ].join('\n')
+      return { status: 'generated' as const, script }
+    },
+    presentCall: args => ({ card: 'generic', title: 'First npm publish script', rawInput: args.pkg }),
+  }))
+
+  ctx.tools.register(defineTool({
+    name: 'npm_deprecate',
+    description:
+      'Generate the npm deprecate command for an old package name (rename SOP): '
+      + 'marks it deprecated pointing to the new name. Requires browser 2FA, so '
+      + 'the command is returned for the human to run.',
+    parameters: {
+      pkg: { type: 'string', required: true, description: 'Old package name to deprecate.' },
+      message: { type: 'string', description: 'Deprecation message (default: renamed to <newPkg>).' },
+      newPkg: { type: 'string', description: 'New package name (used in the default message).' },
+    },
+    output: {
+      schema: {
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+          status: { type: 'string', enum: ['generated'], required: true },
+          command: { type: 'string', required: true },
+        },
+      },
+      render: (_args, value) => [{ type: 'text', text: 'Run in a terminal (browser 2FA):\n' + value.command }],
+    },
+    async execute(args) {
+      const message = args.message ?? (args.newPkg === undefined ? 'deprecated' : 'renamed to ' + args.newPkg)
+      return { status: 'generated' as const, command: 'npm deprecate ' + args.pkg + ' ' + JSON.stringify(message) }
+    },
+    presentCall: args => ({ card: 'generic', title: 'Deprecate npm package', rawInput: args.pkg }),
+  }))
+
+  ctx.tools.register(defineTool({
+    name: 'npm_trust_status',
+    description:
+      'Report whether an npm package exists and whether its OIDC trusted-publisher '
+      + 'state can be verified. Trust state is account-private (not exposed by the '
+      + 'public registry), so when it cannot be verified the tool returns the '
+      + 'exact npmjs.com URL to check.',
+    parameters: {
+      pkg: { type: 'string', required: true, description: 'npm package name.' },
+    },
+    output: {
+      schema: {
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+          exists: { type: 'boolean', required: true },
+          verified: { type: 'boolean', required: true },
+          checkUrl: { type: 'string', required: true },
+          detail: { type: 'string' },
+        },
+      },
+      render: (_args, value) => [{
+        type: 'text',
+        text: _args.pkg + ':' + (value.exists ? ' published' : ' NOT published')
+          + (value.verified ? ' — trust verified' : ' — trust state not publicly checkable; see ' + value.checkUrl),
+      }],
+    },
+    async execute(args) {
+      const info = await npm.checkPackage(args.pkg)
+      const checkUrl = 'https://www.npmjs.com/package/' + args.pkg + '?tab=settings'
+      return {
+        exists: info.exists,
+        verified: false,
+        checkUrl,
+        detail: info.exists
+          ? 'trusted-publisher state is account-private; verify at ' + checkUrl
+          : 'package is not published yet — publish it (npm_first_publish) before configuring trust',
+      }
+    },
+    presentCall: args => ({ card: 'generic', title: 'npm trust status', rawInput: args.pkg }),
   }))
 }

@@ -1,8 +1,18 @@
 /**
- * npm_launch orchestration: scaffold -> GitHub repo -> initial push -> Pages
- * (workflow build) -> npm trust (OIDC publisher; OTP pauses for the human) ->
- * annotated tag (triggers the CI release). Publishing itself runs in CI via
- * OIDC, so the agent never needs an npm credential.
+ * npm_launch orchestration, three stages (SOP 2026-08):
+ *
+ *  stage 'launch' (default): agent does check -> scaffold -> GitHub repo ->
+ *    initial push -> Pages; then RETURNS a humanScript (first npm publish +
+ *    OIDC trust) because npm 2FA is browser-session based and trust requires
+ *    the package to already exist (E404 otherwise). The agent never holds an
+ *    npm credential and cannot complete the 2FA steps.
+ *
+ *  stage 'tag': after the human ran humanScript (published the first version
+ *    and configured the trusted publisher), create the annotated tag for the
+ *    NEXT version -> the CI release workflow publishes via OIDC, no 2FA.
+ *
+ * Publishing itself always runs in CI via OIDC, so after the one-time manual
+ * first publish + trust, every later release is fully automatic.
  */
 import { type Context } from '@deepseek-ai/cordis'
 import { mkdir } from 'node:fs/promises'
@@ -20,7 +30,10 @@ export interface LaunchRequest {
   author?: string
   dir?: string
   initialVersion?: string
+  /** @deprecated legacy no-op — the launch flow never runs npm trust itself. */
   skipTrust?: boolean
+  /** 'launch' (default): scaffold + repo + push + pages, then return the human 2FA script. 'tag': create the CI-release tag after the human published + trusted. */
+  stage?: 'launch' | 'tag'
   session?: unknown
 }
 
@@ -29,8 +42,11 @@ export interface LaunchResult {
   repo: { fullName: string; htmlUrl: string }
   pushed: boolean
   pages: { configured: boolean; url?: string; detail?: string }
+  stage: 'awaiting-human-2fa' | 'tag-created'
+  /** One combined script (first publish + OIDC trust) for the human to run with browser 2FA. Present on 'awaiting-human-2fa'. */
+  humanScript?: string
   trust: {
-    status: 'configured' | 'needs-otp' | 'skipped' | 'failed'
+    status: 'pending-human' | 'configured' | 'failed'
     command?: string
     detail?: string
   }
@@ -43,18 +59,51 @@ interface ShellPolicy {
   workspaceRoot: string
 }
 
+/** Bump the patch of a semver-ish string: "0.1.0" -> "0.1.1". */
+export function bumpPatch(version: string): string {
+  const parts = version.split('.')
+  const last = parseInt(parts[parts.length - 1] ?? '0', 10)
+  if (Number.isNaN(last)) return version + '.1'
+  parts[parts.length - 1] = String(last + 1)
+  return parts.join('.')
+}
+
 export async function launchPackage(
   ctx: Context,
   github: GitHubService,
   npm: NpmService,
   req: LaunchRequest,
 ): Promise<LaunchResult> {
-  const next: string[] = []
   const owner = req.owner ?? (await github.getIdentity()).login
   const repoName = req.name
   const version = req.initialVersion ?? '0.1.0'
-  const tagName = 'v' + version
   const dir = req.dir ?? repoName
+
+  // ---- stage 'tag': Phase C (human already published + trusted) ----
+  if (req.stage === 'tag') {
+    const info = await npm.checkPackage(req.name)
+    if (!info.exists) {
+      throw new Error(
+        'npm package ' + req.name + ' is not published yet — run npm_launch (stage: launch) and execute its humanScript (npm publish + npm trust) first',
+      )
+    }
+    const nextVersion = bumpPatch(version)
+    const tagName = 'v' + nextVersion
+    const tag = await createAnnotatedTag(ctx, github, owner, repoName, nextVersion, tagName)
+    return {
+      dir,
+      repo: { fullName: owner + '/' + repoName, htmlUrl: 'https://github.com/' + owner + '/' + repoName },
+      pushed: true,
+      pages: { configured: true, url: 'https://' + owner + '.github.io/' + repoName + '/' },
+      stage: 'tag-created',
+      trust: { status: 'configured', command: npm.trustCommand(req.name, 'release.yml', owner + '/' + repoName) },
+      tag: { name: tagName, sha: tag.sha },
+      next: [],
+    }
+  }
+
+  // ---- stage 'launch': Phase A (agent) ----
+  const next: string[] = []
 
   // 1. npm package name must be available
   const info = await npm.checkPackage(req.name)
@@ -76,7 +125,7 @@ export async function launchPackage(
   await mkdir(dir, { recursive: true })
   await writeScaffold(dir, files)
 
-  // 3. create the GitHub repository
+  // 3. create the GitHub repository (open-source launch defaults to public; Pages needs it)
   const repo = await github.createRepo({
     name: repoName,
     ...(req.description === undefined ? {} : { description: req.description }),
@@ -98,33 +147,29 @@ export async function launchPackage(
   // 5. enable Pages with GitHub Actions build (workflow) — no branch source needed
   const pagesResult = await createPages(ctx, github, owner, repoName)
 
-  // 6. npm trust github (OIDC trusted publisher); OTP pauses for the human
+  // ---- Phase B: return the human 2FA script (first publish + OIDC trust) ----
+  // npm 2FA is browser-session based; npm trust has no --otp and requires the
+  // package to already exist. The agent cannot do this, so surface one script.
   const trustCommand = npm.trustCommand(req.name, 'release.yml', owner + '/' + repoName)
-  let trust: LaunchResult['trust']
-  if (req.skipTrust === true) {
-    trust = { status: 'skipped', command: trustCommand }
-    next.push('npm_trust_add: ' + trustCommand + '  (需在终端执行并输入 OTP)')
-  } else {
-    trust = await runTrust(ctx, trustCommand, dir, req.session)
-    if (trust.status === 'configured') {
-      // 7. annotated tag -> CI release (only when trust is configured)
-      const tag = await createAnnotatedTag(ctx, github, owner, repoName, version, tagName)
-      trust = { ...trust }
-      return {
-        dir, repo: { fullName: repo.fullName, htmlUrl: repo.htmlUrl }, pushed: pushed.pushed,
-        pages: pagesResult, trust, tag: { name: tagName, sha: tag.sha }, next: [],
-      }
-    }
-    if (trust.status === 'needs-otp') {
-      next.push('在终端执行 ' + trustCommand + ' 并输入 OTP，完成后重新调用 npm_launch（skipTrust: true 会跳过这一步，只打 tag）')
-    } else {
-      next.push('修正 npm trust 问题后重跑 npm_launch')
-    }
-  }
+  const nextVersion = bumpPatch(version)
+  const humanScript = [
+    '# 首次发布 + OIDC trust(浏览器 2FA,每条确认一次;完成后回来调 npm_launch stage: tag)',
+    'cd ' + shellQuote(dir),
+    'npm publish',
+    'npm trust github ' + req.name + ' --file release.yml --repository ' + owner + '/' + repoName + ' --allow-publish -y',
+  ].join('\n')
+  next.push('在终端执行上面 humanScript 里的命令(首次 npm publish + npm trust,浏览器 2FA)')
+  next.push('完成后再次调用 npm_launch(stage: "tag")→ 创建 v' + nextVersion + ' tag,CI 自动发布后续版本(免 2FA)')
 
   return {
-    dir, repo: { fullName: repo.fullName, htmlUrl: repo.htmlUrl }, pushed: pushed.pushed,
-    pages: pagesResult, trust, next,
+    dir,
+    repo: { fullName: repo.fullName, htmlUrl: repo.htmlUrl },
+    pushed: pushed.pushed,
+    pages: pagesResult,
+    stage: 'awaiting-human-2fa',
+    humanScript,
+    trust: { status: 'pending-human', command: trustCommand, detail: '首次发布 + OIDC trust 需浏览器 2FA,请执行 humanScript' },
+    next,
   }
 }
 
@@ -222,25 +267,4 @@ async function createAnnotatedTag(
     throw new Error('github: tag ref creation failed (HTTP ' + ref.status + '): ' + detail)
   }
   return { sha: tagSha }
-}
-
-/** Run npm trust github for real; a 2FA-writes account pauses on an OTP prompt. */
-async function runTrust(ctx: Context, command: string, workdir: string, session: unknown): Promise<LaunchResult['trust']> {
-  const shell = ctx.shell as ShellExecutor
-  const sandboxPolicy = session === undefined ? undefined : sessionShellPolicy(ctx, session)
-  const run = await shell.run(shell.resolve({
-    command,
-    workdir,
-    timeoutMs: 25000,
-    ...(sandboxPolicy === undefined ? {} : { sandboxPolicy }),
-  }))
-  const combined = (run.stdout.text + '\n' + run.stderr.text).toLowerCase()
-  const paused = run.aborted === true || run.timedOut === true
-  if (run.exitCode === 0 && !paused) {
-    return { status: 'configured', command, detail: 'trusted publisher configured' }
-  }
-  if (paused || /otp|one-time|two-factor|two factor|2fa|passcode|authentication required|eneedauth/i.test(combined)) {
-    return { status: 'needs-otp', command, detail: 'npm trust requires an OTP (2FA writes mode); run it in a terminal' }
-  }
-  return { status: 'failed', command, detail: (run.stderr.text || run.stdout.text).slice(0, 400) }
 }
