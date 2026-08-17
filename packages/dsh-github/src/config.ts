@@ -8,7 +8,7 @@
  */
 import Schema from '@deepseek-ai/schemastery'
 import { settingsNamespace } from '@deepseek-ai/dsh-settings'
-import type { GithubConfigView } from 'dsh-github-connector-wire'
+import type { GithubConfigView } from 'dsh-connector-wire'
 
 /** Settings namespace owned by this connector. */
 export const GITHUB_SETTINGS_NAMESPACE = settingsNamespace('github')
@@ -57,7 +57,7 @@ export const Config: Schema<GithubConfig> = Schema.object({
   allowRelease: Schema.boolean().default(true),
 })
 
-export type { GithubConfigView } from 'dsh-github-connector-wire'
+export type { GithubConfigView } from 'dsh-connector-wire'
 
 /** Resolve the currently authoritative config into the wire view. */
 export function toConfigView(config: GithubConfig): GithubConfigView {

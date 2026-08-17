@@ -80,7 +80,7 @@
 ## 3. 包结构
 
 ```
-github-connector/                    # 你的第三方仓库
+dsh-connector-kit/                    # 你的第三方仓库
 ├── packages/
 │   ├── dsh-github/                  # bundle + host 面插件
 │   │   ├── package.json             # dsh.bundle.patch + 依赖 dsh-github-ui

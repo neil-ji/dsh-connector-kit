@@ -1,7 +1,7 @@
 {
-  "name": "dsh-github-connector-wire",
+  "name": "dsh-connector-wire",
   "version": "0.1.0",
-  "description": "Shared wire contract for dsh-github-connector: zod schemas + strict Typert invocation descriptors + host/remote contributions",
+  "description": "Shared wire contract for dsh-connector-github: zod schemas + strict Typert invocation descriptors + host/remote contributions",
   "type": "module",
   "main": "lib/index.js",
   "types": "lib/types/index.d.ts",
@@ -39,6 +39,6 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/neil-ji/dsh-github-connector.git"
+    "url": "https://github.com/neil-ji/dsh-connector-kit.git"
   }
 }

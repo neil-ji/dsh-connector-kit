@@ -5,7 +5,7 @@
  */
 import type { Context } from '@deepseek-ai/cordis'
 import { defineTool } from '@deepseek-ai/dsh-tools'
-import type { GitHubService } from 'dsh-github-connector'
+import type { GitHubService } from 'dsh-connector-github'
 import type { NpmService } from './npm-service.ts'
 import { launchPackage } from './launch.ts'
 import { writeScaffold } from './scaffold.ts'
@@ -151,7 +151,7 @@ export function registerNpmTools(ctx: Context, npm: NpmService, getGithub: () =>
       + 'site), creates the GitHub repo, pushes the initial commit, enables Pages '
       + 'with GitHub Actions, configures the npm trusted publisher (pauses for an '
       + 'OTP when needed) and creates the v0.1.0 annotated tag to trigger the CI '
-      + 'npm publish. Requires the dsh-github-connector plugin (GitHub credentials).',
+      + 'npm publish. Requires the dsh-connector-github plugin (GitHub credentials).',
     parameters: {
       name: { type: 'string', required: true, description: 'npm package name (also the GitHub repo name).' },
       description: { type: 'string', description: 'One-line package description.' },
@@ -186,7 +186,7 @@ export function registerNpmTools(ctx: Context, npm: NpmService, getGithub: () =>
     async execute(args, exec) {
       const github = getGithub()
       if (github === undefined) {
-        throw new Error('dsh-github-connector is not loaded: add it to the profile bundles before using npm_launch')
+        throw new Error('dsh-connector-github is not loaded: add it to the profile bundles before using npm_launch')
       }
       return launchPackage(ctx, github, npm, {
         name: args.name,

@@ -1,5 +1,5 @@
 {
-  "name": "dsh-github-connector",
+  "name": "dsh-connector-github",
   "version": "0.1.0",
   "description": "Third-party DeepSeek Harness bundle: GitHub connector (host-side capability, agent tools, Typert Remote)",
   "type": "module",
@@ -28,8 +28,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "dsh-github-connector-ui": "workspace:^",
-    "dsh-github-connector-wire": "workspace:^"
+    "dsh-connector-github-ui": "workspace:^",
+    "dsh-connector-wire": "workspace:^"
   },
   "publishConfig": {
     "access": "public"
@@ -60,6 +60,6 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/neil-ji/dsh-github-connector.git"
+    "url": "https://github.com/neil-ji/dsh-connector-kit.git"
   }
 }

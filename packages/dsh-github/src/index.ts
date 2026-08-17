@@ -3,7 +3,7 @@
  * the model-facing tools. The Web UI half lives in the dsh-github-ui package.
  */
 import type { Context } from '@deepseek-ai/cordis'
-import { GITHUB_HOST_CONTRIBUTION } from 'dsh-github-connector-wire'
+import { GITHUB_HOST_CONTRIBUTION } from 'dsh-connector-wire'
 import type {} from '@deepseek-ai/dsh-typert-registry'
 import { GitHubService } from './github-service.ts'
 import type { GithubConfig } from './config.ts'

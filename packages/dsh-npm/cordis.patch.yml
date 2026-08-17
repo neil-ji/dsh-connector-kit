@@ -2,4 +2,4 @@
 # GitHub steps reuse ctx.github from the dsh-github bundle (loaded separately).
 - insert:
     - id: npm
-      name: 'dsh-npm-connector'
+      name: 'dsh-connector-npm'

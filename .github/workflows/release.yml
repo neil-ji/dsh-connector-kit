@@ -1,6 +1,6 @@
 name: release
 
-# 发布工作流：打 tag vX.Y.Z -> 构建/测试 -> npm 发布三包 -> 更新 GitHub Pages（落地页 + 文档页）
+# 发布工作流：打 tag vX.Y.Z -> 构建/测试 -> npm 发布四包 -> 更新 GitHub Pages（落地页 + 文档页）
 on:
   push:
     tags:
@@ -55,11 +55,12 @@ jobs:
       - name: Publish to npm (OIDC trusted publishing)
         # npm CLI >= 11.5.1 exchanges the GitHub Actions OIDC id-token for a
         # registry token automatically (ACTIONS_ID_TOKEN_REQUEST_URL); publish
-        # in dependency order (wire -> ui -> host) so workspace:^ resolves.
+        # in dependency order (wire -> ui -> host -> npm) so workspace:^ resolves.
         run: |
-          npm publish --access public -w dsh-github-connector-wire
-          npm publish --access public -w dsh-github-connector-ui
-          npm publish --access public -w dsh-github-connector
+          npm publish --access public -w dsh-connector-wire
+          npm publish --access public -w dsh-connector-github-ui
+          npm publish --access public -w dsh-connector-github
+          npm publish --access public -w dsh-connector-npm
 
       - name: Build Pages site
         run: |

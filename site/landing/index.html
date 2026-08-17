@@ -3,19 +3,19 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>dsh-github-connector — DSH GitHub 连接器插件</title>
-<meta name="description" content="DeepSeek Harness (DSH) 的第三方 GitHub 连接器插件：40 个 Agent 工具 + Web 设置页 + git push/pull/clone，接入 GitHub 能力。">
+<title>dsh-connector-kit — DSH 连接器套件（GitHub + npm）</title>
+<meta name="description" content="DeepSeek Harness (DSH) 的第三方连接器套件：GitHub 40 个 Agent 工具 + Web 设置页 + npm 一键发布管线。">
 <link rel="stylesheet" href="/assets/style.css">
 </head>
 <body>
 <header class="topbar">
   <div class="container inner">
-    <span class="brand">dsh<span class="dot">-github</span>-connector</span>
+    <span class="brand">dsh<span class="dot">-connector</span>-kit</span>
     <nav>
       <a href="/">功能落地页</a>
       <a href="/docs/">官方文档</a>
-      <a href="https://github.com/neil-ji/dsh-github-connector">GitHub</a>
-      <a href="https://www.npmjs.com/package/dsh-github-connector">npm</a>
+      <a href="https://github.com/neil-ji/dsh-connector-kit">GitHub</a>
+      <a href="https://www.npmjs.com/package/dsh-connector-github">npm</a>
     </nav>
   </div>
 </header>
@@ -23,10 +23,10 @@
 <section class="hero">
   <div class="container">
     <span class="badge">v__DSH_VERSION__</span>
-    <h1>给 DeepSeek Harness 接入 <span class="grad">GitHub 能力</span></h1>
+    <h1>给 DeepSeek Harness 接入 <span class="grad">GitHub + npm 自动化</span></h1>
     <p class="lead">
-      第三方 DSH 插件（不改 dsh 源码）：40 个 Agent 工具覆盖仓库 / 内容 / PR / Issue / Release /
-      Actions / Pages 全链路，加上 Web 设置页、HTTPS 推送与本地代理支持。
+      第三方 DSH 连接器套件（不改 dsh 源码）：40 个 GitHub Agent 工具覆盖建仓/推送/PR/审查/Actions/Pages 全链路，
+      外加 npm 一键发布管线（scaffold → 建仓 → OIDC release → Pages）与 Web 设置页。
     </p>
     <div class="cta">
       <a class="btn primary" href="/docs/#install">开始安装</a>
@@ -72,10 +72,10 @@
   <div class="container">
     <h2>安装</h2>
     <p class="sub">通过 npm 安装（推荐）：</p>
-    <pre><code>dsh plugin --profile &lt;name&gt; add dsh-github-connector</code></pre>
+    <pre><code>dsh plugin --profile &lt;name&gt; add dsh-connector-github</code></pre>
     <p class="sub">或从源码构建安装：</p>
-    <pre><code>git clone https://github.com/neil-ji/dsh-github-connector.git
-cd dsh-github-connector && pnpm install && pnpm build
+    <pre><code>git clone https://github.com/neil-ji/dsh-connector-kit.git
+cd dsh-connector-kit && pnpm install && pnpm build
 dsh plugin --profile &lt;name&gt; add file:./packages/dsh-github</code></pre>
     <div class="note">首次安装后在 Web 设置页（设置 → GitHub 连接）粘贴 GitHub Personal Access Token，即可开始使用全部工具。</div>
   </div>
@@ -83,7 +83,7 @@ dsh plugin --profile &lt;name&gt; add file:./packages/dsh-github</code></pre>
 
 <footer>
   <div class="container">
-    <p>dsh-github-connector · MIT License · <a href="https://github.com/neil-ji/dsh-github-connector">GitHub 仓库</a> · <a href="/docs/">文档</a> · 由 GitHub Actions 在每次 npm 发布后自动构建本页</p>
+    <p>dsh-connector-kit · MIT License · <a href="https://github.com/neil-ji/dsh-connector-kit">GitHub 仓库</a> · <a href="/docs/">文档</a> · 由 GitHub Actions 在每次 npm 发布后自动构建本页</p>
   </div>
 </footer>
 </body>

@@ -17,10 +17,10 @@ importers:
 
   packages/dsh-github:
     dependencies:
-      dsh-github-connector-ui:
+      dsh-connector-github-ui:
         specifier: workspace:^
         version: link:../dsh-github-ui
-      dsh-github-connector-wire:
+      dsh-connector-wire:
         specifier: workspace:^
         version: link:../dsh-github-wire
     devDependencies:
@@ -60,7 +60,7 @@ importers:
 
   packages/dsh-github-ui:
     dependencies:
-      dsh-github-connector-wire:
+      dsh-connector-wire:
         specifier: workspace:^
         version: link:../dsh-github-wire
     devDependencies:
@@ -145,7 +145,7 @@ importers:
       '@deepseek-ai/dsh-tools':
         specifier: ^0.1.0-rc.6
         version: 0.1.0-rc.6(f8724372086ccc1457fc84e7becee2e0)
-      dsh-github-connector:
+      dsh-connector-github:
         specifier: workspace:^
         version: link:../dsh-github
       esbuild:

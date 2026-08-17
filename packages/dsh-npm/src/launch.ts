@@ -6,7 +6,7 @@
  */
 import { type Context } from '@deepseek-ai/cordis'
 import { mkdir } from 'node:fs/promises'
-import type { GitHubService } from 'dsh-github-connector'
+import type { GitHubService } from 'dsh-connector-github'
 import type { ShellExecutor } from '@deepseek-ai/dsh-shell'
 import type { NpmService } from './npm-service.ts'
 import { renderScaffold, writeScaffold } from './scaffold.ts'
@@ -163,7 +163,7 @@ async function githubApi(
     headers: {
       'Authorization': 'Bearer ' + token,
       'Accept': 'application/vnd.github+json',
-      'User-Agent': 'dsh-npm-connector',
+      'User-Agent': 'dsh-connector-npm',
       ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
     },
     ...(body === undefined ? {} : { body: JSON.stringify(body) }),

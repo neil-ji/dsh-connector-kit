@@ -12,14 +12,14 @@ import type {} from '@deepseek-ai/dsh-client-locale/client'
 import type {} from '@deepseek-ai/dsh-api-remotes/client'
 import { bindSnapshotSelector } from '@deepseek-ai/dsh-client-web-react'
 import type { TypertRemoteNamespaceMap } from '@deepseek-ai/dsh-typert-protocol'
-import { GITHUB_REMOTE_CONTRIBUTION } from 'dsh-github-connector-wire'
+import { GITHUB_REMOTE_CONTRIBUTION } from 'dsh-connector-wire'
 import { GithubSection } from './GithubSection.tsx'
 import type { GithubSectionInjected } from './GithubSection.tsx'
 import { GithubSettingsStore } from './store.ts'
 import { en, zh, type GithubKey } from './locales.ts'
 
 export type { GithubSectionInjected, GithubSectionProps } from './GithubSection.tsx'
-export type { GithubConfigView, GithubWhoamiValue } from 'dsh-github-connector-wire'
+export type { GithubConfigView, GithubWhoamiValue } from 'dsh-connector-wire'
 export type { GithubKey } from './locales.ts'
 
 declare module '@deepseek-ai/dsh-client-ui-slots' {

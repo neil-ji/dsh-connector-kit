@@ -1,5 +1,5 @@
 {
-  "name": "dsh-github-connector-ui",
+  "name": "dsh-connector-github-ui",
   "version": "0.1.0",
   "description": "Third-party DeepSeek Harness client plugin: GitHub settings page",
   "type": "module",
@@ -23,7 +23,7 @@
     "lib/types/**/*.d.ts"
   ],
   "dependencies": {
-    "dsh-github-connector-wire": "workspace:^"
+    "dsh-connector-wire": "workspace:^"
   },
   "publishConfig": {
     "access": "public"
@@ -79,6 +79,6 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/neil-ji/dsh-github-connector.git"
+    "url": "https://github.com/neil-ji/dsh-connector-kit.git"
   }
 }

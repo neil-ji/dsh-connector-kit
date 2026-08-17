@@ -8,7 +8,7 @@ import type { ReactNode } from 'react'
 import { Button, Input, Pill, StateDot } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { SnapshotSelectorHook } from '@deepseek-ai/dsh-client-web-react'
 import type { GithubSettingsState, GithubSettingsStore } from './store.ts'
-import type { GithubConfigView, GithubProxyTestValue } from 'dsh-github-connector-wire'
+import type { GithubConfigView, GithubProxyTestValue } from 'dsh-connector-wire'
 import type { GithubKey } from './locales.ts'
 import styles from './GithubSection.module.css'
 

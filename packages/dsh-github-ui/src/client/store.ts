@@ -7,7 +7,7 @@ import { createSnapshotStore } from '@deepseek-ai/dsh-client-runtime/client'
 import type { SnapshotStore } from '@deepseek-ai/dsh-client-runtime/client'
 import type { CredentialView, IApiClient } from '@deepseek-ai/dsh-api-remotes/client'
 import type { TypertRemoteNamespaceMap } from '@deepseek-ai/dsh-typert-protocol'
-import type { GithubConfigView, GithubProxyTestValue, GithubWhoamiValue } from 'dsh-github-connector-wire'
+import type { GithubConfigView, GithubProxyTestValue, GithubWhoamiValue } from 'dsh-connector-wire'
 
 /** The mounted github Remote namespace (created by ctx.remote.$mount). */
 type GithubNamespace = TypertRemoteNamespaceMap['github']

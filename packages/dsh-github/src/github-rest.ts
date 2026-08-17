@@ -71,7 +71,7 @@ function authHeaders(token: string, body: unknown): Record<string, string> {
   return {
     'Authorization': 'Bearer ' + token,
     'Accept': 'application/vnd.github+json',
-    'User-Agent': 'dsh-github-connector',
+    'User-Agent': 'dsh-connector-github',
     ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
   }
 }

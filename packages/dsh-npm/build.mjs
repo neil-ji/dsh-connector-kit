@@ -1,6 +1,6 @@
 /**
  * dsh-npm host build: tsc emits declarations, esbuild bundles the host entry.
- * @deepseek-ai/* and dsh-github-connector stay bare imports (runtime reuse).
+ * @deepseek-ai/* and dsh-connector-github stay bare imports (runtime reuse).
  */
 import { build } from 'esbuild'
 import { execSync } from 'node:child_process'
@@ -16,6 +16,6 @@ await build({
   format: 'esm',
   platform: 'node',
   target: 'es2022',
-  external: ['@deepseek-ai/*', 'zod', 'dsh-github-connector'],
+  external: ['@deepseek-ai/*', 'zod', 'dsh-connector-github'],
   logLevel: 'info',
 })

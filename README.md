@@ -1,16 +1,17 @@
-# dsh-github-connector
+# dsh-connector-kit
 
-第三方 DeepSeek Harness（DSH）插件：为 DSH 接入 GitHub 能力。**不改 dsh 源码**，通过官方 bundle/profile 机制安装。
+第三方 DeepSeek Harness（DSH）连接器套件：为 DSH 接入 GitHub 能力（建仓/推送/PR/审查/Actions/Pages 等 40 个工具）+ npm 一键发布管线（scaffold → 建仓 → OIDC release → Pages）。**不改 dsh 源码**，通过官方 bundle/profile 机制安装。
 
-## 包结构（树外三包）
+## 包结构（树外四包）
 
 | 包 | 角色 | 关键声明 |
 |---|---|---|
-| `dsh-github-connector`（源码目录 `dsh-github`） | bundle + host 面插件，npm 包 | `dsh.bundle.patch` + `cordis.patch.yml` |
-| `dsh-github-connector-ui`（源码目录 `dsh-github-ui`） | client 面插件（设置页），npm 包 | `dsh.client` + `exports["./client"]` |
-| `dsh-github-connector-wire`（源码目录 `dsh-github-wire`） | 共享 wire 契约（zod + strict Typert descriptors），npm 包 | 被 host/client 同时依赖 |
+| `dsh-connector-github`（源码目录 `dsh-github`） | bundle + host 面插件，npm 包 | `dsh.bundle.patch` + `cordis.patch.yml` |
+| `dsh-connector-github-ui`（源码目录 `dsh-github-ui`） | client 面插件（设置页），npm 包 | `dsh.client` + `exports["./client"]` |
+| `dsh-connector-wire`（源码目录 `dsh-github-wire`） | 共享 wire 契约（zod + strict Typert descriptors），npm 包 | 被 host/client 同时依赖 |
+| `dsh-connector-npm`（源码目录 `dsh-npm`） | npm 一键发布 bundle（scaffold → 建仓 → OIDC release → Pages），npm 包 | `dsh.bundle.patch`，复用 `ctx.github` |
 
-> npm 包名用 `dsh-github-connector` 系列（`dsh-github` 在 npm 已被占用）；运行时插件标识仍为 `dsh-github`，不影响已安装配置。
+> npm 包名用 `dsh-connector-*` 系列（`dsh-github` 在 npm 已被占用）；仓库名 `dsh-connector-kit`；运行时插件标识仍为 `dsh-github` / `github-ui` / `npm`，不影响已安装配置。
 
 ## 安装（用户侧）
 
@@ -19,15 +20,15 @@
 dsh plugin --profile <name> add file:./packages/dsh-github
 
 # git 安装（拉源码，pnpm ≥10 会拦截 build 脚本，需按提示放行）
-dsh plugin --profile <name> add github:you/dsh-github-connector#<sha>
+dsh plugin --profile <name> add github:you/dsh-connector-kit#<sha>
 # 在 profile 的 pnpm-workspace.yaml 里加：
 #   allowBuilds:
-#     dsh-github-connector: true
-#     dsh-github-connector-ui: true
-#     dsh-github-connector-wire: true
+#     dsh-connector-github: true
+#     dsh-connector-github-ui: true
+#     dsh-connector-wire: true
 
 # npm / tarball 安装（发布产物，无需 build 授权）
-dsh plugin --profile <name> add dsh-github-connector
+dsh plugin --profile <name> add dsh-connector-github
 dsh plugin --profile <name> add ./dsh-github-0.1.0.tgz
 ```
 
@@ -72,11 +73,11 @@ git tag vX.Y.Z
 git push origin vX.Y.Z   # 触发 .github/workflows/release.yml
 ```
 
-工作流依次执行：对齐三包版本（tag 为准）→ typecheck → build → test → `pnpm -r publish`（npm，wire → ui → host 拓扑序）→ 版本号注入构建 `site/` → 部署 Pages。`main` 上 `site/` 变更会触发 `pages.yml` 直接预览更新（不发布 npm）。
+工作流依次执行：对齐四包版本（tag 为准）→ typecheck → build → test → npm 发布（wire → ui → host → npm 拓扑序）→ 版本号注入构建 `site/` → 部署 Pages。`main` 上 `site/` 变更会触发 `pages.yml` 直接预览更新（不发布 npm）。
 
 **前置条件（一次性）**
 
-1. **npm 首次发布**：本地用 npm 账号手动 publish 三个包各一次（`dsh-github-connector-wire` → `dsh-github-connector-ui` → `dsh-github-connector`），建立包名记录；后续新版本由 CI 自动发布；
+1. **npm 首次发布**：本地用 npm 账号手动 publish 四个包各一次（`dsh-connector-wire` → `dsh-connector-github-ui` → `dsh-connector-github` → `dsh-connector-npm`），建立包名记录；后续新版本由 CI 自动发布；
 2. 仓库 **Settings → Secrets → Actions** 新建 `NPM_TOKEN`（npmjs.com → Access Tokens → Generate New Token → Automation）；
 3. 仓库 **Settings → Pages → Source** 选择 **GitHub Actions**。
 
@@ -85,9 +86,10 @@ git push origin vX.Y.Z   # 触发 .github/workflows/release.yml
 **Trusted publisher 批量配置（npm ≥ 11.10）**：新增 npm 包或重配信任关系时，无需逐包去 npmjs 网页点选，一条命令搞定（需 npm 登录态 + 2FA OTP；先 `--dry-run` 验证）：
 
 ```sh
-npm trust github dsh-github-connector-wire --file release.yml --repository neil-ji/dsh-github-connector --allow-publish -y
-npm trust github dsh-github-connector-ui    --file release.yml --repository neil-ji/dsh-github-connector --allow-publish -y
-npm trust github dsh-github-connector       --file release.yml --repository neil-ji/dsh-github-connector --allow-publish -y
+npm trust github dsh-connector-wire --file release.yml --repository neil-ji/dsh-connector-kit --allow-publish -y
+npm trust github dsh-connector-github-ui    --file release.yml --repository neil-ji/dsh-connector-kit --allow-publish -y
+npm trust github dsh-connector-github       --file release.yml --repository neil-ji/dsh-connector-kit --allow-publish -y
+npm trust github dsh-connector-npm          --file release.yml --repository neil-ji/dsh-connector-kit --allow-publish -y
 ```
 
 ## 当前状态 / 路线图
