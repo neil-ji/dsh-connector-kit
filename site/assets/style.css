@@ -238,6 +238,39 @@ footer .links { display: flex; gap: 18px; flex-wrap: wrap; margin-bottom: 8px; }
   .container { padding: 0 18px; }
 }
 
+
+/* ---------- icon system (inline SVG, Phosphor/Lucide outline) ---------- */
+.icon { display: inline-flex; vertical-align: middle; flex-shrink: 0; }
+.icon svg { width: 1em; height: 1em; }
+.nav-icon { margin-right: 6px; color: var(--muted); }
+.topbar nav a:hover .nav-icon { color: var(--accent); }
+.topbar nav a.active .nav-icon { color: var(--accent); }
+.stat-icon {
+  width: 34px; height: 34px; padding: 7px; margin: 0 auto 10px;
+  border-radius: 9px; background: var(--accent-soft); color: #4ADE80;
+  display: flex; align-items: center; justify-content: center;
+}
+.stat-icon svg { width: 100%; height: 100%; }
+.h2-icon { margin-right: 10px; color: var(--accent); vertical-align: -3px; }
+.h2-icon svg { width: 24px; height: 24px; }
+.step-icon {
+  width: 30px; height: 30px; padding: 6px; margin-right: 10px;
+  border-radius: 8px; background: var(--accent-soft); color: #4ADE80;
+  display: inline-flex; align-items: center; justify-content: center; vertical-align: -7px;
+}
+.step-icon svg { width: 100%; height: 100%; }
+.toc-icon { margin-right: 8px; color: var(--accent); vertical-align: -2px; }
+.toc-icon svg { width: 15px; height: 15px; }
+.btn .btn-icon { margin-right: 7px; vertical-align: -2px; }
+.btn .btn-icon svg { width: 16px; height: 16px; }
+.callout-icon { margin-right: 8px; vertical-align: -2px; }
+.callout-icon svg { width: 16px; height: 16px; }
+.note .callout-icon { color: var(--blue); }
+.warn .callout-icon { color: var(--warn); }
+.tip .callout-icon { color: var(--accent); }
+.badge .badge-icon { margin-right: 6px; vertical-align: -1px; }
+.badge .badge-icon svg { width: 12px; height: 12px; }
+
 /* ---------- reduced motion ---------- */
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
