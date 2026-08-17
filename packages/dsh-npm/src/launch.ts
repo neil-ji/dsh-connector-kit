@@ -80,7 +80,7 @@ export async function launchPackage(
   const repo = await github.createRepo({
     name: repoName,
     ...(req.description === undefined ? {} : { description: req.description }),
-    ...(req.visibility === undefined ? {} : { visibility: req.visibility }),
+    visibility: req.visibility ?? 'public',
   })
 
   // 4. git init + origin + initial push (github.push handles add/commit/set-url/push)

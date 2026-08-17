@@ -6,7 +6,7 @@ import { execSync } from 'node:child_process'
 import { rmSync } from 'node:fs'
 
 rmSync('lib', { recursive: true, force: true })
-execSync('npx tsc -p tsconfig.json', { stdio: 'inherit' })
+execSync('npx --no-install tsc -p tsconfig.json', { stdio: 'inherit' })
 
 await build({
   entryPoints: { 'index': 'src/index.ts' },
