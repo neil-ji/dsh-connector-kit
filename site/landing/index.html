@@ -4,15 +4,22 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>dsh-connector-kit — DSH 连接器套件（GitHub + npm）</title>
-<meta name="description" content="DeepSeek Harness (DSH) 的第三方连接器套件：GitHub 40 个 Agent 工具 + Web 设置页 + npm 一键发布管线。">
+<meta name="description" content="DeepSeek Harness (DSH) 的第三方连接器套件：47 个 Agent 工具（40 GitHub + 7 npm）+ Web 设置页 + npm 一键发布管线，不改 dsh 源码。">
+<meta property="og:title" content="dsh-connector-kit — DSH 连接器套件">
+<meta property="og:description" content="47 个 Agent 工具：GitHub 建仓/推送/PR/审查/Actions/Pages 全链路 + npm 一键发布（OIDC）。">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://neil-ji.github.io/dsh-connector-kit/">
+<link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
 <link rel="stylesheet" href="/assets/style.css">
 </head>
 <body>
 <header class="topbar">
   <div class="container inner">
     <span class="brand">dsh<span class="dot">-connector</span>-kit</span>
+    <input type="checkbox" id="nav-toggle" class="nav-toggle">
+    <label for="nav-toggle" class="nav-burger" aria-label="菜单"><span></span><span></span><span></span></label>
     <nav>
-      <a href="/">功能落地页</a>
+      <a href="/" class="active">功能落地页</a>
       <a href="/docs/">官方文档</a>
       <a href="https://github.com/neil-ji/dsh-connector-kit">GitHub</a>
       <a href="https://www.npmjs.com/package/dsh-connector-github">npm</a>
@@ -22,15 +29,27 @@
 
 <section class="hero">
   <div class="container">
-    <span class="badge">v__DSH_VERSION__</span>
+    <div class="badges">
+      <span class="badge">v__DSH_VERSION__</span>
+      <span class="badge blue">47 tools</span>
+      <span class="badge blue">MIT License</span>
+    </div>
     <h1>给 DeepSeek Harness 接入 <span class="grad">GitHub + npm 自动化</span></h1>
     <p class="lead">
-      第三方 DSH 连接器套件（不改 dsh 源码）：40 个 GitHub Agent 工具覆盖建仓/推送/PR/审查/Actions/Pages 全链路，
-      外加 npm 一键发布管线（scaffold → 建仓 → OIDC release → Pages）与 Web 设置页。
+      第三方 DSH 连接器套件（不改 dsh 源码）：47 个 Agent 工具 —— 40 个 GitHub 工具覆盖
+      建仓/推送/PR/审查/Actions/Pages 全链路，7 个 npm 工具实现「打 tag 即全自动发布」，
+      外加 Web 设置页与 git 代理支持。
     </p>
     <div class="cta">
       <a class="btn primary" href="/docs/#install">开始安装</a>
       <a class="btn ghost" href="/docs/">阅读官方文档</a>
+      <a class="btn ghost" href="https://github.com/neil-ji/dsh-connector-kit">GitHub 仓库</a>
+    </div>
+    <div class="stats">
+      <div class="stat"><b>40</b><span>GitHub Agent 工具</span></div>
+      <div class="stat"><b>7</b><span>npm 发布工具</span></div>
+      <div class="stat"><b>4</b><span>npm 包</span></div>
+      <div class="stat"><b>0</b><span>改动 dsh 源码</span></div>
     </div>
   </div>
 </section>
@@ -38,7 +57,7 @@
 <section class="section">
   <div class="container">
     <h2>核心能力</h2>
-    <p class="sub">围绕发布工作流设计：建仓 → 写代码 → 提交 → 推送 → PR → 审查 → 发版</p>
+    <p class="sub">围绕发布工作流设计：建仓 → 写代码 → 提交 → 推送 → PR → 审查 → 发版 → 发布到 npm</p>
     <div class="grid">
       <div class="card"><h3>仓库 &amp; 身份</h3><ul>
         <li>创建 / 读取 / 编辑仓库元数据</li>
@@ -68,10 +87,25 @@
   </div>
 </section>
 
+<section class="section" id="quickstart">
+  <div class="container">
+    <h2>30 秒快速开始</h2>
+    <p class="sub">安装插件 → 粘贴 token → 让 Agent 干活</p>
+    <div class="steps">
+      <div class="step"><div class="num">1</div><div class="body">安装插件
+        <p><code>dsh plugin --profile &lt;name&gt; add dsh-connector-github</code></p></div></div>
+      <div class="step"><div class="num">2</div><div class="body">粘贴 GitHub PAT
+        <p>Web 设置页 → GitHub 连接（需 <code>repo</code> + <code>workflow</code> scope）</p></div></div>
+      <div class="step"><div class="num">3</div><div class="body">直接使用
+        <p>Agent 自动获得 40 个 <code>github_*</code> 与 7 个 <code>npm_*</code> 工具</p></div></div>
+    </div>
+  </div>
+</section>
+
 <section class="section" id="install">
   <div class="container">
     <h2>安装</h2>
-    <p class="sub">通过 npm 安装（推荐）：</p>
+    <p class="sub">通过 npm 安装（推荐，发布产物无需 build 授权）：</p>
     <pre><code>dsh plugin --profile &lt;name&gt; add dsh-connector-github</code></pre>
     <p class="sub">或从源码构建安装：</p>
     <pre><code>git clone https://github.com/neil-ji/dsh-connector-kit.git
@@ -81,9 +115,33 @@ dsh plugin --profile &lt;name&gt; add file:./packages/dsh-github</code></pre>
   </div>
 </section>
 
+<section class="section" id="npm">
+  <div class="container">
+    <h2>npm 一键发布管线</h2>
+    <p class="sub">一个想法 → 打 tag 全自动发布；人工只出现在绕不开的 2FA 环节</p>
+    <div class="steps">
+      <div class="step"><div class="num">1</div><div class="body"><code>npm_launch</code>（stage: launch）
+        <p>校验包名 → 生成可发布 TS 包（含 OIDC release 工作流 + Pages 站点）→ 建仓 → 推初始提交 → 开 Pages</p></div></div>
+      <div class="step"><div class="num">2</div><div class="body">人工跑 2FA 脚本（一次性）
+        <p>首次 <code>npm publish</code> + <code>npm trust</code>（浏览器 2FA，Agent 无法代跑）</p></div></div>
+      <div class="step"><div class="num">3</div><div class="body"><code>npm_launch</code>（stage: tag）
+        <p>创建 <code>v&lt;next&gt;</code> tag，CI 经 OIDC trusted publishing 免 2FA 全自动发布</p></div></div>
+    </div>
+    <div class="tip">详细 SOP 见官方文档 <a href="/docs/#npm-sop">npm 一键发布（SOP）</a> 与仓库 <a href="https://github.com/neil-ji/dsh-connector-kit/blob/main/docs/SOP.md">docs/SOP.md</a>。</div>
+  </div>
+</section>
+
 <footer>
   <div class="container">
-    <p>dsh-connector-kit · MIT License · <a href="https://github.com/neil-ji/dsh-connector-kit">GitHub 仓库</a> · <a href="/docs/">文档</a> · 由 GitHub Actions 在每次 npm 发布后自动构建本页</p>
+    <div class="links">
+      <a href="https://github.com/neil-ji/dsh-connector-kit">GitHub 仓库</a>
+      <a href="/docs/">官方文档</a>
+      <a href="https://www.npmjs.com/package/dsh-connector-github">npm: dsh-connector-github</a>
+      <a href="https://www.npmjs.com/package/dsh-connector-github-ui">dsh-connector-github-ui</a>
+      <a href="https://www.npmjs.com/package/dsh-connector-wire">dsh-connector-wire</a>
+      <a href="https://www.npmjs.com/package/dsh-connector-npm">dsh-connector-npm</a>
+    </div>
+    <p>dsh-connector-kit · MIT License · 由 GitHub Actions 在每次 npm 发布后自动构建本页（v__DSH_VERSION__）</p>
   </div>
 </footer>
 </body>

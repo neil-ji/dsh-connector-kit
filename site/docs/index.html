@@ -4,16 +4,23 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>官方文档 — dsh-connector-kit</title>
-<meta name="description" content="dsh-connector-kit 官方文档：安装、配置、工具参考（GitHub 40 + npm 4）、网络与代理、发布流程。">
+<meta name="description" content="dsh-connector-kit 官方文档：安装、配置、工具参考（GitHub 40 + npm 7）、网络与代理、npm 一键发布 SOP、发布流程。">
+<meta property="og:title" content="dsh-connector-kit 官方文档">
+<meta property="og:description" content="安装、配置、47 个 Agent 工具参考与 npm 一键发布 SOP（GitHub + npm 自动化）。">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://neil-ji.github.io/dsh-connector-kit/docs/">
+<link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
 <link rel="stylesheet" href="/assets/style.css">
 </head>
 <body>
 <header class="topbar">
   <div class="container inner">
     <span class="brand">dsh<span class="dot">-connector</span>-kit · 文档</span>
+    <input type="checkbox" id="nav-toggle" class="nav-toggle">
+    <label for="nav-toggle" class="nav-burger" aria-label="菜单"><span></span><span></span><span></span></label>
     <nav>
       <a href="/">← 功能落地页</a>
-      <a href="/docs/">文档</a>
+      <a href="/docs/" class="active">文档</a>
       <a href="https://github.com/neil-ji/dsh-connector-kit">GitHub</a>
     </nav>
   </div>
@@ -21,7 +28,10 @@
 
 <section class="hero" style="padding:48px 0 24px;">
   <div class="container">
-    <span class="badge">v__DSH_VERSION__</span>
+    <div class="badges">
+      <span class="badge">v__DSH_VERSION__</span>
+      <span class="badge blue">GitHub 40 + npm 7</span>
+    </div>
     <h1>官方文档</h1>
     <p class="lead">安装、配置、工具参考与发布流程（GitHub + npm 一键发布）</p>
   </div>
@@ -34,9 +44,11 @@
       <li><a href="#quickstart">快速开始</a></li>
       <li><a href="#install">安装</a></li>
       <li><a href="#config">配置</a></li>
-      <li><a href="#tools">工具参考（GitHub 40 + npm 4）</a></li>
+      <li><a href="#tools">工具参考（GitHub 40 + npm 7）</a></li>
+      <li><a href="#npm-sop">npm 一键发布（SOP）</a></li>
       <li><a href="#network">网络与代理</a></li>
       <li><a href="#publish">发布流程（tag → npm → Pages）</a></li>
+      <li><a href="#security">安全设计</a></li>
       <li><a href="#architecture">架构</a></li>
       <li><a href="#faq">FAQ</a></li>
     </ul>
@@ -46,31 +58,38 @@
 <section class="section" id="quickstart">
   <div class="container">
     <h2>快速开始</h2>
-    <pre><code># 1. 安装插件
-dsh plugin --profile web add dsh-connector-github
-
-# 2. 重启 dsh 后，在 Web 设置页粘贴 GitHub PAT（需 repo + workflow scope）
-# 3. 让 Agent 直接使用 github_* 工具</code></pre>
+    <div class="steps">
+      <div class="step"><div class="num">1</div><div class="body">安装插件
+        <p><code>dsh plugin --profile web add dsh-connector-github</code></p></div></div>
+      <div class="step"><div class="num">2</div><div class="body">粘贴 GitHub PAT
+        <p>重启 dsh 后，Web 设置页 → GitHub 连接（需 <code>repo</code> + <code>workflow</code> scope）</p></div></div>
+      <div class="step"><div class="num">3</div><div class="body">使用工具
+        <p>让 Agent 直接调用 <code>github_*</code> / <code>npm_*</code> 工具即可</p></div></div>
+    </div>
   </div>
 </section>
 
 <section class="section" id="install">
   <div class="container">
     <h2>安装</h2>
+    <div class="table-wrap">
     <table>
       <tr><th>方式</th><th>命令</th></tr>
-      <tr><td>npm</td><td><code>dsh plugin --profile &lt;name&gt; add dsh-connector-github</code></td></tr>
+      <tr><td>npm（推荐）</td><td><code>dsh plugin --profile &lt;name&gt; add dsh-connector-github</code></td></tr>
       <tr><td>源码 / git</td><td><code>dsh plugin --profile &lt;name&gt; add github:neil-ji/dsh-connector-kit#&lt;sha&gt;</code></td></tr>
       <tr><td>本地构建</td><td><code>pnpm -r build && dsh plugin --profile &lt;name&gt; add file:./packages/dsh-github</code></td></tr>
     </table>
-    <div class="warn">git 安装时 pnpm ≥10 会拦截 build 脚本，需在 profile 的 <code>pnpm-workspace.yaml</code> 添加 <code>allowBuilds</code> 放行三个子包。</div>
+    </div>
+    <div class="warn">git 安装时 pnpm ≥10 会拦截 build 脚本，需在 profile 的 <code>pnpm-workspace.yaml</code> 添加 <code>allowBuilds</code> 放行三个子包（<code>dsh-connector-github</code> / <code>-ui</code> / <code>-wire</code>）。</div>
+    <div class="note">本地打包安装必须用 <code>file:</code> 前缀——默认 <code>link:</code> 不会安装 bundle 的子依赖。npm / tarball 安装（发布产物）无需 build 授权。</div>
   </div>
 </section>
 
 <section class="section" id="config">
   <div class="container">
     <h2>配置</h2>
-    <p>全部配置在 Web 设置页（设置 → GitHub 连接）完成，持久化于 <code>~/.dsh/settings.yaml</code> 的 <code>github:</code> 段：</p>
+    <p class="sub">全部配置在 Web 设置页（设置 → GitHub 连接）完成，持久化于 <code>~/.dsh/settings.yaml</code> 的 <code>github:</code> 段：</p>
+    <div class="table-wrap">
     <table>
       <tr><th>项</th><th>说明</th></tr>
       <tr><td><code>tokenEnv</code></td><td>credential-ref，默认 <code>GITHUB_TOKEN</code>，值存 <code>~/.dsh/.credentials.yaml</code>（只写不回读）</td></tr>
@@ -80,36 +99,156 @@ dsh plugin --profile web add dsh-connector-github
       <tr><td><code>defaultVisibility</code></td><td>新建仓库默认可见性（private/public）</td></tr>
       <tr><td><code>allow*</code></td><td>九个权限闸门：CreateRepo / Push / Pull / PullRequest / Review / Pages / Actions / Issues / Release</td></tr>
     </table>
+    </div>
+    <p class="sub">推送 <code>.github/workflows</code> 文件需要 token 含 <code>workflow</code> scope（fine-grained PAT 需 Workflows 写入权限），设置页有提示。</p>
   </div>
 </section>
 
 <section class="section" id="tools">
   <div class="container">
-    <h2>工具参考（GitHub 40 + npm 4）</h2>
-    <p class="sub">全部输出经 service 层投影 + 严格 schema 校验，不做任何破坏性操作（无删除、无 force push）。</p>
+    <h2>工具参考（GitHub 40 + npm 7）</h2>
+    <p class="sub">全部输出经 service 层投影 + 严格 schema 校验（<code>additionalProperties: false</code>），不做任何破坏性操作（无删除、无 force push）。</p>
+
+    <h3 style="margin:24px 0 6px; font-size:19px;">仓库 / 身份（7）</h3>
+    <div class="table-wrap">
     <table>
-      <tr><th>领域</th><th>工具</th></tr>
-      <tr><td>仓库 / 身份</td><td><code>github_whoami</code> <code>github_repo_get</code> <code>github_repo_create</code> <code>github_repo_edit</code> <code>github_user_repos</code> <code>github_search_repos</code> <code>github_fork</code></td></tr>
-      <tr><td>git</td><td><code>github_clone</code> <code>github_pull</code> <code>github_push</code></td></tr>
-      <tr><td>内容</td><td><code>github_content</code> <code>github_repo_tree</code> <code>github_readme</code> <code>github_file_write</code> <code>github_commits</code> <code>github_commit_get</code></td></tr>
-      <tr><td>分支 / tag</td><td><code>github_branches</code> <code>github_branch_get</code> <code>github_tags</code></td></tr>
-      <tr><td>PR / 审查</td><td><code>github_pr</code> <code>github_pr_list</code> <code>github_pr_get</code> <code>github_review</code> <code>github_review_list</code></td></tr>
-      <tr><td>Issue</td><td><code>github_issue_create</code> <code>github_issues</code> <code>github_issue_get</code> <code>github_issue_comment</code></td></tr>
-      <tr><td>Release</td><td><code>github_releases</code> <code>github_release_create</code></td></tr>
-      <tr><td>Pages</td><td><code>github_pages_status</code> <code>github_pages_build</code></td></tr>
-      <tr><td>Actions</td><td><code>github_workflows</code> <code>github_workflow_dispatch</code> <code>github_workflow_runs</code> <code>github_workflow_run</code> <code>github_workflow_jobs</code> <code>github_workflow_artifacts</code> <code>github_artifact_download</code> <code>github_secrets</code></td></tr>
-      <tr><td>npm 发布</td><td><code>npm_package_check</code> <code>npm_scaffold</code> <code>npm_trust_add</code> <code>npm_launch</code></td></tr>
+      <tr><th>工具</th><th>说明</th></tr>
+      <tr><td><code>github_whoami</code></td><td>认证身份 + token scopes（classic PAT）</td></tr>
+      <tr><td><code>github_repo_get</code></td><td>仓库元数据（描述、默认分支、star 等）</td></tr>
+      <tr><td><code>github_repo_create</code></td><td>创建远程仓库（owner/repo 名被拒绝）</td></tr>
+      <tr><td><code>github_repo_edit</code></td><td>改安全元数据（描述/homepage/topics/开关）</td></tr>
+      <tr><td><code>github_user_repos</code></td><td>列出当前账号可访问的仓库</td></tr>
+      <tr><td><code>github_search_repos</code></td><td>搜索仓库</td></tr>
+      <tr><td><code>github_fork</code></td><td>fork 到自己的账号</td></tr>
     </table>
-    <div class="note">token 需要 <code>repo</code> + <code>workflow</code> scope（classic PAT）才能覆盖全部工具的写操作。</div>
+    </div>
+
+    <h3 style="margin:24px 0 6px; font-size:19px;">内容 / 提交（6）</h3>
+    <div class="table-wrap">
+    <table>
+      <tr><th>工具</th><th>说明</th></tr>
+      <tr><td><code>github_content</code></td><td>读文件（UTF-8 解码）或列目录</td></tr>
+      <tr><td><code>github_repo_tree</code></td><td>递归文件树（带 sha）</td></tr>
+      <tr><td><code>github_readme</code></td><td>读 README</td></tr>
+      <tr><td><code>github_file_write</code></td><td>Contents API 单文件提交（创建/更新）</td></tr>
+      <tr><td><code>github_commits</code></td><td>提交列表（可按路径/分支过滤）</td></tr>
+      <tr><td><code>github_commit_get</code></td><td>单提交 + 变更文件 patch</td></tr>
+    </table>
+    </div>
+
+    <h3 style="margin:24px 0 6px; font-size:19px;">分支 / 标签（3）</h3>
+    <div class="table-wrap">
+    <table>
+      <tr><th>工具</th><th>说明</th></tr>
+      <tr><td><code>github_branches</code> / <code>github_branch_get</code></td><td>分支列表 / 分支保护规则</td></tr>
+      <tr><td><code>github_tags</code></td><td>标签列表</td></tr>
+    </table>
+    </div>
+
+    <h3 style="margin:24px 0 6px; font-size:19px;">git 操作（3，走 ctx.shell + 会话沙箱策略 + 可选 gitProxy）</h3>
+    <div class="table-wrap">
+    <table>
+      <tr><th>工具</th><th>说明</th></tr>
+      <tr><td><code>github_clone</code></td><td>clone 到本地（配合 fork→改→推→PR 流程）</td></tr>
+      <tr><td><code>github_pull</code></td><td>pull 最新变更</td></tr>
+      <tr><td><code>github_push</code></td><td>add/commit/set-url/push（origin 推断，<b>永不 force</b>）</td></tr>
+    </table>
+    </div>
+
+    <h3 style="margin:24px 0 6px; font-size:19px;">PR / 审查（5）</h3>
+    <div class="table-wrap">
+    <table>
+      <tr><th>工具</th><th>说明</th></tr>
+      <tr><td><code>github_pr</code></td><td>在两个分支间创建 PR</td></tr>
+      <tr><td><code>github_pr_list</code></td><td>PR 列表（按状态过滤）</td></tr>
+      <tr><td><code>github_pr_get</code></td><td>读取单个 PR</td></tr>
+      <tr><td><code>github_review</code></td><td>提交 review（APPROVE / REQUEST_CHANGES / COMMENT）</td></tr>
+      <tr><td><code>github_review_list</code></td><td>PR 变更文件 + 已有评论</td></tr>
+    </table>
+    </div>
+
+    <h3 style="margin:24px 0 6px; font-size:19px;">Issue（4）</h3>
+    <div class="table-wrap">
+    <table>
+      <tr><th>工具</th><th>说明</th></tr>
+      <tr><td><code>github_issue_create</code></td><td>创建 issue（可加 label / assignee）</td></tr>
+      <tr><td><code>github_issues</code></td><td>issue 列表（PR 也出现）</td></tr>
+      <tr><td><code>github_issue_get</code></td><td>读取单个 issue</td></tr>
+      <tr><td><code>github_issue_comment</code></td><td>评论 issue/PR</td></tr>
+    </table>
+    </div>
+
+    <h3 style="margin:24px 0 6px; font-size:19px;">Release（2）</h3>
+    <div class="table-wrap">
+    <table>
+      <tr><th>工具</th><th>说明</th></tr>
+      <tr><td><code>github_releases</code></td><td>release 列表</td></tr>
+      <tr><td><code>github_release_create</code></td><td>创建 release（支持 draft/prerelease，tag 缺失自动创建）</td></tr>
+    </table>
+    </div>
+
+    <h3 style="margin:24px 0 6px; font-size:19px;">Pages（2）</h3>
+    <div class="table-wrap">
+    <table>
+      <tr><th>工具</th><th>说明</th></tr>
+      <tr><td><code>github_pages_status</code></td><td>Pages 配置与构建状态</td></tr>
+      <tr><td><code>github_pages_build</code></td><td>请求重新构建 Pages</td></tr>
+    </table>
+    </div>
+
+    <h3 style="margin:24px 0 6px; font-size:19px;">Actions（8）</h3>
+    <div class="table-wrap">
+    <table>
+      <tr><th>工具</th><th>说明</th></tr>
+      <tr><td><code>github_workflows</code></td><td>工作流列表</td></tr>
+      <tr><td><code>github_workflow_dispatch</code></td><td>触发 workflow_dispatch（支持 inputs）</td></tr>
+      <tr><td><code>github_workflow_runs</code> / <code>github_workflow_run</code></td><td>运行列表（按状态过滤）/ 单次运行</td></tr>
+      <tr><td><code>github_workflow_jobs</code></td><td>作业与步骤（失败诊断）</td></tr>
+      <tr><td><code>github_workflow_artifacts</code> / <code>github_artifact_download</code></td><td>artifacts 列表 / 下载 zip</td></tr>
+      <tr><td><code>github_secrets</code></td><td>密钥<b>名称</b>列表（值永不暴露）</td></tr>
+    </table>
+    </div>
+
+    <h3 style="margin:24px 0 6px; font-size:19px;">npm 发布（7）</h3>
+    <div class="table-wrap">
+    <table>
+      <tr><th>工具</th><th>说明</th></tr>
+      <tr><td><code>npm_package_check</code></td><td>检查 npm 包名可用性与元数据（免凭证）</td></tr>
+      <tr><td><code>npm_scaffold</code></td><td>生成可发布的 TS 包：package.json、tsconfig、esbuild、README/LICENSE、OIDC release 工作流 + Pages 站点（不触碰 GitHub/npm）</td></tr>
+      <tr><td><code>npm_trust_add</code></td><td>配置 OIDC trusted publishing（npm ≥ 11.10）；2FA 写入模式下返回命令到终端执行</td></tr>
+      <tr><td><code>npm_launch</code></td><td>两阶段 SOP：stage <code>launch</code> 走完 scaffold→建仓→push→Pages 并返回人工 2FA 脚本；stage <code>tag</code> 打 v&lt;next&gt; tag 触发 CI OIDC 发布</td></tr>
+      <tr><td><code>npm_first_publish</code></td><td>生成首次发布人工脚本（<code>npm publish</code> + <code>npm trust</code>，浏览器 2FA）</td></tr>
+      <tr><td><code>npm_deprecate</code></td><td>生成旧包名 deprecate 命令（改名 SOP）</td></tr>
+      <tr><td><code>npm_trust_status</code></td><td>报告包是否已发布 + trust 状态核实链接（trust 状态是账号私有，无法公开验证）</td></tr>
+    </table>
+    </div>
+    <div class="note">token 需要 <code>repo</code> + <code>workflow</code> scope（classic PAT）才能覆盖全部工具的写操作。<code>npm_*</code> 工具需要同时安装 <code>dsh-connector-github</code>（复用 GitHub 凭证）。</div>
+  </div>
+</section>
+
+<section class="section" id="npm-sop">
+  <div class="container">
+    <h2>npm 一键发布（SOP）</h2>
+    <p class="sub">完整从零 SOP 见仓库 <a href="https://github.com/neil-ji/dsh-connector-kit/blob/main/docs/SOP.md">docs/SOP.md</a>（含改名、2FA、OIDC 全部实测教训）。</p>
+    <div class="steps">
+      <div class="step"><div class="num">1</div><div class="body"><code>npm_launch</code> stage: <code>launch</code>
+        <p>校验包名 → scaffold 可发布 TS 包（OIDC release 工作流 + Pages 站点）→ <code>github_repo_create</code> 建仓 → 推初始提交 → 开启 Pages</p></div></div>
+      <div class="step"><div class="num">2</div><div class="body">人工执行返回的 2FA 脚本（一次性）
+        <p>首次 <code>npm publish</code> + <code>npm trust</code> 需要浏览器 2FA，Agent 无法代跑</p></div></div>
+      <div class="step"><div class="num">3</div><div class="body"><code>npm_launch</code> stage: <code>tag</code>
+        <p>创建 <code>v&lt;next&gt;</code> annotated tag → CI 自动：对齐版本 → build → typecheck → test → OIDC 免 2FA 发布 → Pages</p></div></div>
+    </div>
+    <div class="tip"><b>为什么不能全自动？</b> npm 2025-11 起禁 Classic/Automation token、2025-12 吊销存量；首次发布与 trust 是浏览器会话 2FA，绕不开。trust 配好后 CI 打 tag 即可零人工（OIDC trusted publishing）。</div>
   </div>
 </section>
 
 <section class="section" id="network">
   <div class="container">
     <h2>网络与代理</h2>
-    <p>git push/pull 走 HTTPS + token；本机如遇 github.com 直连受限，配置 <code>gitProxy</code> 指向本地代理：</p>
-    <pre><code>gitProxy: http://127.0.0.1:7897   # 设置页可配，留空直连</code></pre>
-    <p>设置页内置「测试代理」按钮（<code>github/proxy.test</code>），用 <code>git ls-remote</code> 验证与 push 完全相同的 HTTPS 路径。SSH-over-443（<code>ssh.github.com:443</code>）可作为兜底出口。</p>
+    <p class="sub">git push/pull 走 HTTPS + token；本机如遇 github.com 直连受限，配置 <code>gitProxy</code> 指向本地代理：</p>
+    <pre><code>gitProxy: http://127.0.0.1:7897   # 设置页可配，留空直连（不覆盖用户全局 git 代理配置）</code></pre>
+    <p class="sub">支持 http / https / socks 代理。设置页内置「测试代理」按钮（<code>github/proxy.test</code>），用 <code>git ls-remote</code> 验证与 push 完全相同的 HTTPS 路径。</p>
+    <div class="note">SSH-over-443（<code>ssh://git@ssh.github.com:443/&lt;owner&gt;/&lt;repo&gt;.git</code>）可作为兜底出口，多数受限网络下比 HTTPS 代理更可靠。</div>
   </div>
 </section>
 
@@ -119,10 +258,23 @@ dsh plugin --profile web add dsh-connector-github
     <ol>
       <li>提交代码到 <code>main</code>（<code>pnpm typecheck && pnpm test && pnpm -r build</code> 全绿）；</li>
       <li>打 tag 并推送：<code>git tag vX.Y.Z && git push origin vX.Y.Z</code>；</li>
-      <li>GitHub Actions <code>release</code> 工作流自动：对齐四包版本 → 构建 → 测试 → npm 发布（wire → ui → host → npm）；</li>
+      <li>GitHub Actions <code>release</code> 工作流自动：对齐四包版本 → 构建 → 测试 → npm 发布（wire → ui → host → npm，OIDC trusted publishing）；</li>
       <li>发布成功后构建本站（落地页 + 文档页，版本号自动注入）并部署到 GitHub Pages。</li>
     </ol>
-    <div class="warn">前置条件：仓库 Secrets 配置 <code>NPM_TOKEN</code>（npmjs automation token）；Settings → Pages → Source 选择 <b>GitHub Actions</b>；四个 npm 包名（<code>dsh-connector-*</code> 系列）已首次发布。</div>
+    <p class="sub"><code>main</code> 上 <code>site/**</code> 变更会触发 <code>pages.yml</code> 直接预览更新（不发布 npm）。</p>
+    <div class="warn">前置条件：四个 npm 包名已首次发布 + OIDC trust 已配置；仓库 Secrets 配置 <code>NPM_TOKEN</code>；Settings → Pages → Source 选择 <b>GitHub Actions</b>（否则 deploy-pages 失败）。</div>
+  </div>
+</section>
+
+<section class="section" id="security">
+  <div class="container">
+    <h2>安全设计</h2>
+    <div class="grid">
+      <div class="card"><h3>token 隔离</h3><p>token 只存在于 <code>ctx.credentials</code> 与请求头 / per-run 环境；Web 设置页只写不回读，值存 <code>~/.dsh/.credentials.yaml</code>。</p></div>
+      <div class="card"><h3>git 认证</h3><p>内联 credential helper + per-run env：token 不进 argv、不进 remote URL、不进 <code>.git/config</code>。</p></div>
+      <div class="card"><h3>危险操作零入口</h3><p>不提供：删除仓库/分支/文件、force push、visibility 变更、webhook/secret 值写入。破坏性操作请在 GitHub Web/CLI 处理。</p></div>
+      <div class="card"><h3>权限闸门</h3><p>九个 <code>allow*</code> 开关（CreateRepo/Push/Pull/PullRequest/Review/Pages/Actions/Issues/Release）可在设置页逐项关闭。</p></div>
+    </div>
   </div>
 </section>
 
@@ -137,7 +289,7 @@ dsh plugin --profile web add dsh-connector-github
 ├── dsh-github-ui/         # npm: dsh-connector-github-ui（client 设置页）
 ├── dsh-github-wire/       # npm: dsh-connector-wire（共享 wire 契约）
 └── dsh-npm/               # npm: dsh-connector-npm（npm 一键发布 bundle）</code></pre>
-    <p>token 只存在于 <code>ctx.credentials</code> 与请求头 / per-run 环境；git 认证用内联 credential helper（token 不进 argv、不进 remote URL、不进 <code>.git/config</code>）。</p>
+    <p class="sub">npm 包名用 <code>dsh-connector-*</code> 系列（<code>dsh-github</code> 在 npm 已被占用）；运行时插件标识仍为 <code>dsh-github</code> / <code>github-ui</code> / <code>npm</code>，不影响已安装配置。wire 契约手写 strict Typert descriptors，host/client 两端共享同一份不漂移。</p>
   </div>
 </section>
 
@@ -148,6 +300,10 @@ dsh plugin --profile web add dsh-connector-github
     <p class="sub">npm 上 <code>dsh-github</code> 已被占用（kazii 的另一项目）。本套件以 <code>dsh-connector-*</code> 系列发布（仓库 <code>dsh-connector-kit</code>）；运行时插件标识仍为 <code>dsh-github</code> / <code>github-ui</code> / <code>npm</code>，不影响已安装配置。</p>
     <p><b>push 失败 / Connection reset？</b></p>
     <p class="sub">多为网络问题：确认 <code>gitProxy</code> 可达（设置页「测试代理」），或换 SSH-over-443 兜底。</p>
+    <p><b>首次 npm 发布为什么必须人工？</b></p>
+    <p class="sub">npm 2025-11/12 收紧 2FA：无 automation token；首次 publish 与 trust 均为浏览器会话 2FA。trust 配好后 CI 打 tag 全自动（OIDC）。</p>
+    <p><b>npm trust 报 404？</b></p>
+    <p class="sub">trust 要求包已存在——顺序必须是先 publish 再 trust（<code>POST /-/package/&lt;name&gt;/trust</code> 404 = 包不存在）。</p>
     <p><b>如何删除仓库 / 分支 / 文件？</b></p>
     <p class="sub">插件刻意不提供任何破坏性操作，请在 GitHub Web / CLI 处理。</p>
   </div>
@@ -155,7 +311,12 @@ dsh plugin --profile web add dsh-connector-github
 
 <footer>
   <div class="container">
-    <p>dsh-connector-kit · MIT License · <a href="https://github.com/neil-ji/dsh-connector-kit">GitHub 仓库</a> · <a href="/">← 返回功能落地页</a> · 由 GitHub Actions 在每次 npm 发布后自动构建本页</p>
+    <div class="links">
+      <a href="https://github.com/neil-ji/dsh-connector-kit">GitHub 仓库</a>
+      <a href="/">← 返回功能落地页</a>
+      <a href="https://github.com/neil-ji/dsh-connector-kit/blob/main/docs/SOP.md">发布 SOP</a>
+    </div>
+    <p>dsh-connector-kit · MIT License · 由 GitHub Actions 在每次 npm 发布后自动构建本页（v__DSH_VERSION__）</p>
   </div>
 </footer>
 </body>
