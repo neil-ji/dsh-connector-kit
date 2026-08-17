@@ -1,7 +1,7 @@
 {
-  "name": "dsh-connector-npm",
+  "name": "dsh-connector-npm-wire",
   "version": "0.1.0",
-  "description": "Third-party DeepSeek Harness bundle: one-shot npm package launch (scaffold -> GitHub repo + CICD -> OIDC npm release + Pages)",
+  "description": "Shared wire contract for dsh-connector-npm: zod schemas + strict Typert invocation descriptors + host/remote contributions",
   "type": "module",
   "main": "lib/index.js",
   "types": "lib/types/index.d.ts",
@@ -15,34 +15,26 @@
   "files": [
     "lib/index.js",
     "lib/types/**/*.js",
-    "lib/types/**/*.d.ts",
-    "cordis.patch.yml",
-    "templates"
+    "lib/types/**/*.d.ts"
   ],
-  "dsh": {
-    "bundle": {
-      "patch": "./cordis.patch.yml"
-    }
+  "publishConfig": {
+    "access": "public"
   },
   "scripts": {
     "build": "node build.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
-  "dependencies": {
-    "dsh-connector-npm-wire": "workspace:^"
+  "peerDependencies": {
+    "@deepseek-ai/dsh-typert-protocol": "^0.1.0-rc.6",
+    "@deepseek-ai/dsh-typert-registry": "^0.1.0-rc.6",
+    "zod": "^4.0.0"
   },
   "devDependencies": {
-    "@deepseek-ai/cordis": "^4.0.1",
-    "@deepseek-ai/dsh-shell": "^0.1.0-rc.6",
-    "@deepseek-ai/dsh-tools": "^0.1.0-rc.6",
     "@deepseek-ai/dsh-typert-protocol": "^0.1.0-rc.6",
     "@deepseek-ai/dsh-typert-registry": "^0.1.0-rc.6",
     "esbuild": "^0.25.0",
     "typescript": "^5.6.0",
-    "dsh-connector-github": "workspace:^"
-  },
-  "publishConfig": {
-    "access": "public"
+    "zod": "^4.0.0"
   },
   "license": "MIT",
   "repository": {

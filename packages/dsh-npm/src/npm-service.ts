@@ -3,8 +3,18 @@
  * and npm CLI command building for OIDC trusted publishing. Publishing itself
  * is delegated to the generated GitHub Actions workflow (OIDC), so the agent
  * never holds an npm credential.
+ *
+ * Extends TypertRemoteService so the Web UI (dsh-npm-ui) can query package /
+ * trust status and generate the first-release human script through the Typert
+ * Gateway. All @Remote methods are read-only or produce plain-text scripts —
+ * no write side effects on npm or GitHub.
  */
-import type { Context } from '@deepseek-ai/cordis'
+import { type Context } from '@deepseek-ai/cordis'
+import { Remote, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
+import type {
+  NpmLaunchScriptView, NpmPackageInfoView, NpmStatusView, NpmTrustStatusView,
+} from 'dsh-connector-npm-wire'
+import { NPM_KIT_PACKAGES } from 'dsh-connector-npm-wire'
 
 /** Registry metadata projection for one package name. */
 export interface NpmPackageInfo {
@@ -17,11 +27,30 @@ export interface NpmPackageInfo {
   versions?: string[]
 }
 
-export class NpmService {
+/** First-release human script (npm publish + npm trust, browser 2FA). */
+export function firstReleaseScript(args: {
+  pkg: string
+  repository: string
+  dir?: string
+  workflowFile?: string
+}): string {
+  const dir = args.dir ?? args.pkg
+  const workflowFile = args.workflowFile ?? 'release.yml'
+  return [
+    '# 首次发布 + OIDC trust(浏览器 2FA,每条确认一次)',
+    'cd ' + JSON.stringify(dir),
+    'npm publish',
+    'npm trust github ' + args.pkg + ' --file ' + workflowFile + ' --repository ' + args.repository + ' --allow-publish -y',
+  ].join('\n')
+}
+
+export class NpmService extends TypertRemoteService {
   constructor(
-    private readonly ctx: Context,
+    _ctx: Context,
     private readonly registry = 'https://registry.npmjs.org',
-  ) {}
+  ) {
+    super(_ctx, 'npm')
+  }
 
   /** Check availability + current metadata of a package name (public read). */
   async checkPackage(name: string): Promise<NpmPackageInfo> {
@@ -64,6 +93,71 @@ export class NpmService {
       '-y',
     ]
     return 'npm trust github ' + pkg + ' ' + flags.join(' ')
+  }
+
+  /** Registry connectivity probe + all four kit packages' publish status. */
+  @Remote('status.get')
+  async statusRemote(): Promise<NpmStatusView> {
+    const packages: NpmPackageInfoView[] = []
+    let error: string | null = null
+    for (const name of NPM_KIT_PACKAGES) {
+      try {
+        const info = await this.checkPackage(name)
+        packages.push({
+          name: info.name,
+          exists: info.exists,
+          latest: info.latest ?? null,
+          description: info.description ?? null,
+        })
+      } catch (err) {
+        error = error === null ? String(err) : error
+        packages.push({ name, exists: false, latest: null, description: null })
+      }
+    }
+    return { ok: error === null, registry: this.registry, error, packages }
+  }
+
+  /** Single package availability + metadata (used by the launch wizard). */
+  @Remote('package.check')
+  async packageCheckRemote(request: { name: string }): Promise<NpmPackageInfoView> {
+    const info = await this.checkPackage(request.name)
+    return {
+      name: info.name,
+      exists: info.exists,
+      latest: info.latest ?? null,
+      description: info.description ?? null,
+    }
+  }
+
+  /**
+   * Trust status for one package. Trust state is account-private (not exposed
+   * by the public registry), so when it cannot be verified we return the exact
+   * npmjs.com URL to check.
+   */
+  @Remote('trust.status')
+  async trustStatusRemote(request: { pkg: string }): Promise<NpmTrustStatusView> {
+    const info = await this.checkPackage(request.pkg)
+    const checkUrl = 'https://www.npmjs.com/package/' + request.pkg + '?tab=settings'
+    return {
+      pkg: request.pkg,
+      exists: info.exists,
+      verified: false,
+      checkUrl,
+      detail: info.exists
+        ? 'trusted-publisher state is account-private; verify at ' + checkUrl
+        : 'package is not published yet — publish it (first-release script) before configuring trust',
+    }
+  }
+
+  /** Generate the first-release human script (plain text, no side effects). */
+  @Remote('launch.script')
+  launchScriptRemote(request: {
+    pkg: string
+    repository: string
+    dir?: string
+    workflowFile?: string
+  }): NpmLaunchScriptView {
+    return { status: 'generated', script: firstReleaseScript(request) }
   }
 }
 

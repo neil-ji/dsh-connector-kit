@@ -291,7 +291,9 @@
 │   └── cordis.patch.yml
 ├── dsh-github-ui/         # npm: dsh-connector-github-ui（client 设置页）
 ├── dsh-github-wire/       # npm: dsh-connector-wire（共享 wire 契约）
-└── dsh-npm/               # npm: dsh-connector-npm（npm 一键发布 bundle）</code></pre>
+├── dsh-npm-wire/          # npm: dsh-connector-npm-wire（npm 契约）
+├── dsh-npm/               # npm: dsh-connector-npm（npm 一键发布 bundle）
+└── dsh-npm-ui/            # npm: dsh-connector-npm-ui（npm 发布状态页）</code></pre>
     <p class="sub">npm 包名用 <code>dsh-connector-*</code> 系列（<code>dsh-github</code> 在 npm 已被占用）；运行时插件标识仍为 <code>dsh-github</code> / <code>github-ui</code> / <code>npm</code>，不影响已安装配置。wire 契约手写 strict Typert descriptors，host/client 两端共享同一份不漂移。</p>
   </div>
 </section>

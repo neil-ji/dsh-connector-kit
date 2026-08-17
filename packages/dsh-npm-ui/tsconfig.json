@@ -5,9 +5,9 @@
     "outDir": "lib/types",
     "declaration": true,
     "declarationMap": true,
-    "sourceMap": true
+    "sourceMap": true,
+    "jsx": "react-jsx",
+    "lib": ["ESNext", "DOM", "DOM.Iterable"]
   },
-  "include": [
-    "src"
-  ]
+  "include": ["src"]
 }

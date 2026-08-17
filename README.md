@@ -1,6 +1,6 @@
 # dsh-connector-kit
 
-> 第三方 DeepSeek Harness（DSH）连接器套件：为 DSH 接入 **GitHub 自动化**（建仓 / 推送 / PR / 审查 / Actions / Pages 等 40 个工具）+ **npm 一键发布管线**（7 个工具，scaffold → 建仓 → OIDC release → Pages）。**不改 dsh 源码**，通过官方 bundle/profile 机制安装。
+> 第三方 DeepSeek Harness（DSH）连接器套件：为 DSH 接入 **GitHub 自动化**（建仓 / 推送 / PR / 审查 / Actions / Pages 等 40 个工具）+ **npm 一键发布管线**（7 个工具，scaffold → 建仓 → OIDC release → Pages），两套连接器都有 **Web 设置页 UI**（GitHub 连接配置 + npm 发布状态/launch 向导）。**不改 dsh 源码**，通过官方 bundle/profile 机制安装。
 
 [![Docs](https://img.shields.io/badge/📖%20Pages-在线文档-4f8cff)](https://neil-ji.github.io/dsh-connector-kit/)
 [![npm](https://img.shields.io/npm/v/dsh-connector-github?label=npm)](https://www.npmjs.com/package/dsh-connector-github)
@@ -64,7 +64,9 @@ dsh plugin --profile <name> add dsh-connector-github
 | `dsh-connector-github`（源码目录 `dsh-github`） | bundle + host 面插件，npm 包 | `dsh.bundle.patch` + `cordis.patch.yml` |
 | `dsh-connector-github-ui`（源码目录 `dsh-github-ui`） | client 面插件（设置页），npm 包 | `dsh.client` + `exports["./client"]` |
 | `dsh-connector-wire`（源码目录 `dsh-github-wire`） | 共享 wire 契约（zod + strict Typert descriptors），npm 包 | 被 host/client 同时依赖 |
-| `dsh-connector-npm`（源码目录 `dsh-npm`） | npm 一键发布 bundle，npm 包 | `dsh.bundle.patch`，复用 `ctx.github` |
+| `dsh-connector-npm-wire`（源码目录 `dsh-npm-wire`） | npm 连接器 wire 契约（状态/脚本生成 Remote），npm 包 | 被 dsh-npm / dsh-npm-ui 同时依赖 |
+| `dsh-connector-npm`（源码目录 `dsh-npm`） | npm 一键发布 bundle（host 面），npm 包 | `dsh.bundle.patch`，复用 `ctx.github` |
+| `dsh-connector-npm-ui`（源码目录 `dsh-npm-ui`） | npm 发布状态面板 + launch 向导（client 面），npm 包 | `dsh.client` + `exports["./client"]` |
 
 > npm 包名用 `dsh-connector-*` 系列（`dsh-github` 在 npm 已被占用）；仓库名 `dsh-connector-kit`；运行时插件标识仍为 `dsh-github` / `github-ui` / `npm`，不影响已安装配置。
 
@@ -211,7 +213,7 @@ git push origin vX.Y.Z   # 触发 .github/workflows/release.yml
 
 **前置条件（一次性）**
 
-1. **npm 首次发布**：本地用 npm 账号手动 publish 四个包各一次（`dsh-connector-wire` → `dsh-connector-github-ui` → `dsh-connector-github` → `dsh-connector-npm`），建立包名记录；后续新版本由 CI 自动发布；
+1. **npm 首次发布**：本地用 npm 账号手动 publish 六个包各一次（`dsh-connector-wire` → `dsh-connector-npm-wire` → `dsh-connector-github-ui` → `dsh-connector-npm-ui` → `dsh-connector-github` → `dsh-connector-npm`），建立包名记录；后续新版本由 CI 自动发布；
 2. 仓库 **Settings → Secrets → Actions** 新建 `NPM_TOKEN`（npmjs.com → Access Tokens → Generate New Token → Automation）；
 3. 仓库 **Settings → Pages → Source** 选择 **GitHub Actions**。
 
@@ -221,9 +223,11 @@ git push origin vX.Y.Z   # 触发 .github/workflows/release.yml
 
 ```sh
 npm trust github dsh-connector-wire --file release.yml --repository neil-ji/dsh-connector-kit --allow-publish -y
-npm trust github dsh-connector-github-ui    --file release.yml --repository neil-ji/dsh-connector-kit --allow-publish -y
-npm trust github dsh-connector-github       --file release.yml --repository neil-ji/dsh-connector-kit --allow-publish -y
-npm trust github dsh-connector-npm          --file release.yml --repository neil-ji/dsh-connector-kit --allow-publish -y
+npm trust github dsh-connector-npm-wire    --file release.yml --repository neil-ji/dsh-connector-kit --allow-publish -y
+npm trust github dsh-connector-github-ui   --file release.yml --repository neil-ji/dsh-connector-kit --allow-publish -y
+npm trust github dsh-connector-npm-ui      --file release.yml --repository neil-ji/dsh-connector-kit --allow-publish -y
+npm trust github dsh-connector-github      --file release.yml --repository neil-ji/dsh-connector-kit --allow-publish -y
+npm trust github dsh-connector-npm         --file release.yml --repository neil-ji/dsh-connector-kit --allow-publish -y
 ```
 
 ## 开发
@@ -271,6 +275,7 @@ trust 要求包已存在——顺序必须是先 publish 再 trust（`POST /-/pa
 
 - host 面 `ctx.github`（GitHubService extends TypertRemoteService）：REST + git（push/pull）。
 - 47 个 Agent 工具：**GitHub 40 + npm 7**（完整清单见 [工具参考](#工具参考github-40--npm-7)）。
+- Web UI：**GitHub 设置页**（token/权限/代理，`dsh-connector-github-ui`）+ **npm 发布状态页**（注册表与四包状态、包名检查、trust 查询、首次发布脚本生成，`dsh-connector-npm-ui`）。
 - 权限闸门：九个 `allow*` 开关（Web 设置页可关）。
 - 刻意不提供：删除仓库/分支、force push、visibility 变更、webhook/secret 写入等任何危险操作。
 - Web 设置页：token 写入/移除、连接测试、权限开关、git 身份、默认可见性、gitProxy。
